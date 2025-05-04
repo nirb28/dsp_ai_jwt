@@ -1,0 +1,26 @@
+id: groq-service
+owner: ML Team
+provider_permissions:
+  - groq
+endpoint_permissions:
+  - /v1/chat/completions
+claims:
+  static:
+    models:
+      - llama3-70b
+      - mixtral-8x7b
+    rate_limit: 50
+    tier: standard
+  dynamic:
+    quota:
+      type: function
+      module: claims.quota
+      function: get_remaining_quota
+      args:
+        user_id: "{user_id}"
+    model_access:
+      type: function
+      module: claims.access
+      function: check_model_access
+      args:
+        api_key_id: "{api_key_id}"

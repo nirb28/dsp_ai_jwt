@@ -1,0 +1,28 @@
+id: openai-service
+owner: AI Team
+provider_permissions:
+  - openai
+endpoint_permissions:
+  - /v1/chat/completions
+  - /v1/embeddings
+claims:
+  static:
+    models:
+      - gpt-3.5-turbo
+      - gpt-4
+    rate_limit: 100
+    tier: premium
+  dynamic:
+    quota:
+      type: function
+      module: claims.quota
+      function: get_remaining_quota
+      args:
+        user_id: "{user_id}"  # Placeholder that will be replaced with actual user ID
+    usage_stats:
+      type: api
+      url: "http://usage-service/api/stats/{api_key_id}"
+      headers:
+        Authorization: "Bearer {internal_token}"  # Placeholder for internal auth token
+      method: GET
+      response_field: data

@@ -1,0 +1,34 @@
+id: full-access
+owner: Admin Team
+provider_permissions:
+  - openai
+  - groq
+  - anthropic
+endpoint_permissions:
+  - /v1/chat/completions
+  - /v1/embeddings
+  - /v1/completions
+claims:
+  static:
+    models:
+      - gpt-3.5-turbo
+      - gpt-4
+      - llama3-70b
+      - claude-3-opus
+    rate_limit: 200
+    tier: enterprise
+  dynamic:
+    budget_status:
+      type: api
+      url: "http://billing-service/api/budget/{api_key_id}"
+      method: GET
+      headers:
+        X-Internal-Auth: "{internal_token}"
+      response_field: remaining_budget
+    team_permissions:
+      type: function
+      module: claims.permissions
+      function: get_team_permissions
+      args:
+        team_id: "{team_id}"
+        api_key_id: "{api_key_id}"
