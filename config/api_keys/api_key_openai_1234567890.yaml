@@ -12,6 +12,7 @@ claims:
       - gpt-4
     rate_limit: 100
     tier: premium
+    exp_hours: 2       # Token expires after 2 hours
   dynamic:
     quota:
       type: function

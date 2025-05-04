@@ -28,11 +28,14 @@ app = Flask(__name__)
 
 # Configure Flask-JWT-Extended
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret-key")
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)  # Default if not specified in API key
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 
 # Authentication method
 AUTH_METHOD = os.getenv("AUTH_METHOD", "file")  # "ldap" or "file"
+
+# Whether to always include base API key claims
+ALWAYS_USE_BASE_CLAIMS = os.getenv("ALWAYS_USE_BASE_CLAIMS", "true").lower() == "true"
 
 # Check if LDAP is requested but not available
 if AUTH_METHOD == "ldap" and not LDAP_AVAILABLE:
@@ -76,16 +79,33 @@ def login():
         "team_id": get_team_id_from_user(username, user_data)
     }
 
-    # Get additional claims based on API key if provided
-    additional_claims = {}
+    # Get additional claims based on API key if provided, otherwise use base API key
+    # The get_additional_claims function now handles using the base API key when api_key is None
+    additional_claims = get_additional_claims(api_key, user_context)
+    
+    # Log which API key is being used
     if api_key:
-        additional_claims = get_additional_claims(api_key, user_context)
+        logger.info(f"Using provided API key: {api_key}")
+    else:
+        logger.info("No API key provided, using base API key")
 
     # Merge user data with additional claims
     claims = {**user_data, **additional_claims}
     
-    # Create tokens
-    access_token = create_access_token(identity=username, additional_claims=claims)
+    # Get expiration time from API key configuration if available
+    expires_delta = app.config["JWT_ACCESS_TOKEN_EXPIRES"]  # Default
+    if 'exp_hours' in claims:
+        expires_delta = timedelta(hours=claims['exp_hours'])
+        logger.info(f"Using custom expiration time from API key: {claims['exp_hours']} hours")
+        # Remove exp_hours from claims to avoid conflicts
+        claims.pop('exp_hours')
+    
+    # Create tokens with custom expiration if specified
+    access_token = create_access_token(
+        identity=username, 
+        additional_claims=claims,
+        expires_delta=expires_delta
+    )
     refresh_token = create_refresh_token(identity=username, additional_claims=claims)
 
     return jsonify(access_token=access_token, refresh_token=refresh_token), 200

@@ -17,6 +17,7 @@ claims:
       - claude-3-opus
     rate_limit: 200
     tier: enterprise
+    exp_hours: 24      # Token expires after 24 hours (extended for enterprise tier)
   dynamic:
     budget_status:
       type: api

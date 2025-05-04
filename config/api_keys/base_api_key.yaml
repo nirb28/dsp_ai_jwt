@@ -1,0 +1,21 @@
+id: base-api-key
+owner: JWT System
+provider_permissions:
+  - openai  # Default provider
+endpoint_permissions:
+  - /v1/chat/completions
+  - /v1/embeddings
+claims:
+  static:
+    models:
+      - gpt-3.5-turbo  # Basic model access
+    rate_limit: 20     # Conservative rate limit
+    tier: standard     # Standard tier
+    exp_hours: 1       # Token expires after 1 hour
+  dynamic:
+    usage:
+      type: function
+      module: claims.quota
+      function: get_remaining_quota
+      args:
+        user_id: "{user_id}"

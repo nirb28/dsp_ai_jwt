@@ -10,12 +10,15 @@ from typing import Dict, Any, Optional, Callable, Union
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_additional_claims(api_key: str, user_context: Dict[str, Any] = None) -> Dict:
+# Define the name of the base API key file
+BASE_API_KEY_FILE = "base_api_key.yaml"
+
+def get_additional_claims(api_key: str = None, user_context: Dict[str, Any] = None) -> Dict:
     """
     Get additional claims based on the provided API key
     
     Args:
-        api_key: The API key to look up
+        api_key: The API key to look up, if None or empty, will use the base API key
         user_context: Optional context about the user (e.g., user_id, team_id)
         
     Returns:
@@ -33,13 +36,27 @@ def get_additional_claims(api_key: str, user_context: Dict[str, Any] = None) -> 
             logger.error(f"API keys directory not found: {api_keys_dir}")
             return {}
         
-        # Look for a config file for this API key
-        api_key_file = os.path.join(api_keys_dir, f"{api_key}.yaml")
+        # Determine which API key file to use
+        api_key_file = None
         
-        # Check if file exists
-        if not os.path.exists(api_key_file):
-            logger.warning(f"Config file for API key not found: {api_key}")
-            return {}
+        # If API key is provided, try to find its config file
+        if api_key:
+            specific_key_file = os.path.join(api_keys_dir, f"{api_key}.yaml")
+            if os.path.exists(specific_key_file):
+                api_key_file = specific_key_file
+            else:
+                logger.warning(f"Config file for API key not found: {api_key}")
+                logger.info("Falling back to base API key")
+        
+        # If no API key provided or specific key not found, use the base API key
+        if not api_key_file:
+            base_key_file = os.path.join(api_keys_dir, BASE_API_KEY_FILE)
+            if os.path.exists(base_key_file):
+                api_key_file = base_key_file
+                logger.info("Using base API key")
+            else:
+                logger.warning(f"Base API key file not found: {BASE_API_KEY_FILE}")
+                return {}
         
         # Load API key config from file
         with open(api_key_file, 'r') as f:
@@ -52,7 +69,7 @@ def get_additional_claims(api_key: str, user_context: Dict[str, Any] = None) -> 
         dynamic_claims = process_dynamic_claims(
             key_data.get('claims', {}).get('dynamic', {}),
             user_context,
-            api_key,
+            api_key or "base_api_key",  # Use base_api_key as the key name if no specific key
             key_data.get('id', '')
         )
         
