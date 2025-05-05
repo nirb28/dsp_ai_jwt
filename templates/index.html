@@ -13,7 +13,7 @@
             padding: 0;
         }
         .container {
-            max-width: 420px;
+            max-width: 1000px;
             background: #fff;
             margin: 48px auto;
             border-radius: 10px;
@@ -227,111 +227,162 @@
             word-break: break-all;
             border: 1px solid #e0e0e0;
         }
+        /* Two-panel layout */
+        .panels-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .panel {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+        }
+        .panel-title {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            color: #34495e;
+        }
+        .divider {
+            border-left: 1px solid #e0e0e0;
+            margin: 0 10px;
+        }
+        .api-docs-section {
+            text-align: center;
+            padding: 15px;
+            margin-top: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>DSPAI JWT Auth Portal</h2>
-        <div class="section">
-            <div class="subtitle">1. Login to get JWT Token</div>
-            <form id="loginForm">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required>
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
-                <label for="api_key">API Key (optional)</label>
-                <input type="text" id="api_key" name="api_key">
-                <button type="submit">Get Token</button>
-            </form>
-            <div id="tokenResult" class="result" style="display:none;">
-                <div class="token-container">
-                    <div class="token-row">
-                        <div class="token-label">Access Token:</div>
-                        <div id="access-token" class="token-value"></div>
-                        <button class="copy-btn" onclick="copyToClipboard('access-token')">Copy to Clipboard</button>
-                    </div>
-                    <div class="token-row">
-                        <div class="token-label">Refresh Token:</div>
-                        <div id="refresh-token" class="token-value"></div>
-                        <button class="copy-btn" onclick="copyToClipboard('refresh-token')">Copy to Clipboard</button>
-                    </div>
-                </div>
-            </div>
-            <div id="tokenError" class="error" style="display:none;"></div>
-        </div>
-        <div class="section">
-            <div class="subtitle">2. Decode/Test JWT Token</div>
-            <form id="decodeForm">
-                <label for="jwt_token">JWT Token</label>
-                <textarea id="jwt_token" name="jwt_token" required></textarea>
-                <button type="submit">Decode Token</button>
-                <button type="button" onclick="validateToken()" style="background: #673ab7;">Validate Signature</button>
-            </form>
-            <div id="decodeResult" class="result" style="display:none;"></div>
-            <div id="decodeError" class="error" style="display:none;"></div>
-            <div id="validateResult" class="result" style="display:none;">
-                <div style="margin-bottom: 12px; font-weight: 500;">Validation Results:</div>
-                <div id="validation-details"></div>
-            </div>
-        </div>
-        <div class="section">
-            <div class="subtitle">3. Refresh Access Token</div>
-            <form id="refreshForm">
-                <label for="refresh_token">Refresh Token</label>
-                <textarea id="refresh_token" name="refresh_token" required></textarea>
-                <button type="submit">Get New Access Token</button>
-            </form>
-            <div id="refreshResult" class="result" style="display:none;">
-                <div class="token-container">
-                    <div class="token-row">
-                        <div class="token-label">New Access Token:</div>
-                        <div id="new-access-token" class="token-value"></div>
-                        <button class="copy-btn" onclick="copyToClipboard('new-access-token')">Copy to Clipboard</button>
-                    </div>
-                </div>
-            </div>
-            <div id="refreshError" class="error" style="display:none;"></div>
-        </div>
-        <div class="section">
-            <div class="subtitle">4. Test Token Freshness (Sensitive Action)</div>
-            <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
-                This demonstrates token freshness. Only tokens from direct login work here, not tokens from refresh.
-            </p>
-            <form id="sensitiveForm">
-                <label for="sensitive_token">Access Token</label>
-                <textarea id="sensitive_token" name="sensitive_token" required></textarea>
-                <button type="submit">Perform Sensitive Action</button>
-            </form>
-            <div id="sensitiveResult" class="result" style="display:none;"></div>
-            <div id="sensitiveError" class="error" style="display:none;"></div>
-        </div>
         
-        <div class="section" id="apiKeySection" style="display:none;">
-            <div class="subtitle">5. API Key Management</div>
-            <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
-                Manage API keys (administrators only)
-            </p>
-            <button class="copy-btn" style="margin-bottom: 15px;" onclick="createApiKey()">Create New API Key</button>
+        <div class="panels-container">
+            <!-- Left Panel - Token Generation -->
+            <div class="panel">
+                <div class="panel-title">Token Generation</div>
+                
+                <div class="section">
+                    <div class="subtitle">Login to get JWT Token</div>
+                    <form id="loginForm">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required>
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                        <label for="api_key">API Key (optional)</label>
+                        <input type="text" id="api_key" name="api_key">
+                        <button type="submit">Get Token</button>
+                    </form>
+                    <div id="tokenResult" class="result" style="display:none;">
+                        <div class="token-container">
+                            <div class="token-row">
+                                <div class="token-label">Access Token:</div>
+                                <div id="access-token" class="token-value"></div>
+                                <button class="copy-btn" onclick="copyToClipboard('access-token')">Copy to Clipboard</button>
+                            </div>
+                            <div class="token-row">
+                                <div class="token-label">Refresh Token:</div>
+                                <div id="refresh-token" class="token-value"></div>
+                                <button class="copy-btn" onclick="copyToClipboard('refresh-token')">Copy to Clipboard</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tokenError" class="error" style="display:none;"></div>
+                </div>
+                
+                <div class="section" id="apiKeySection" style="display:none;">
+                    <div class="subtitle">API Key Management</div>
+                    <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
+                        Manage API keys (administrators only)
+                    </p>
+                    <button class="copy-btn" style="margin-bottom: 15px;" onclick="createApiKey()">Create New API Key</button>
+                    
+                    <div id="apiKeysTable" style="margin-top: 15px; overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Owner</th>
+                                    <th>Providers</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="apiKeysBody">
+                                <!-- API keys will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="apiKeyError" class="error" style="display:none;"></div>
+                </div>
+            </div>
             
-            <div id="apiKeysTable" style="margin-top: 15px; overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Owner</th>
-                            <th>Providers</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="apiKeysBody">
-                        <!-- API keys will be loaded here -->
-                    </tbody>
-                </table>
+            <!-- Right Panel - Token Operations -->
+            <div class="panel">
+                <div class="panel-title">Token Operations</div>
+                
+                <div class="section">
+                    <div class="subtitle">Decode & Validate Token</div>
+                    <form id="decodeForm">
+                        <label for="jwt_token">JWT Token</label>
+                        <textarea id="jwt_token" name="jwt_token" required></textarea>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" style="flex: 1;">Decode Token</button>
+                            <button type="button" onclick="validateToken()" style="flex: 1; background: #673ab7;">Validate Signature</button>
+                        </div>
+                    </form>
+                    <div id="decodeResult" class="result" style="display:none;"></div>
+                    <div id="decodeError" class="error" style="display:none;"></div>
+                    <div id="validateResult" class="result" style="display:none;">
+                        <div style="margin-bottom: 12px; font-weight: 500;">Validation Results:</div>
+                        <div id="validation-details"></div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="subtitle">Refresh Access Token</div>
+                    <form id="refreshForm">
+                        <label for="refresh_token">Refresh Token</label>
+                        <textarea id="refresh_token" name="refresh_token" required></textarea>
+                        <button type="submit">Get New Access Token</button>
+                    </form>
+                    <div id="refreshResult" class="result" style="display:none;">
+                        <div class="token-container">
+                            <div class="token-row">
+                                <div class="token-label">New Access Token:</div>
+                                <div id="new-access-token" class="token-value"></div>
+                                <button class="copy-btn" onclick="copyToClipboard('new-access-token')">Copy to Clipboard</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="refreshError" class="error" style="display:none;"></div>
+                </div>
+                
+                <div class="section">
+                    <div class="subtitle">Test Token Freshness (Sensitive Action)</div>
+                    <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
+                        This demonstrates token freshness. Only tokens from direct login work here, not tokens from refresh.
+                    </p>
+                    <form id="sensitiveForm">
+                        <label for="sensitive_token">Access Token</label>
+                        <textarea id="sensitive_token" name="sensitive_token" required></textarea>
+                        <button type="submit">Perform Sensitive Action</button>
+                    </form>
+                    <div id="sensitiveResult" class="result" style="display:none;"></div>
+                    <div id="sensitiveError" class="error" style="display:none;"></div>
+                </div>
             </div>
-            <div id="apiKeyError" class="error" style="display:none;"></div>
         </div>
         
-        <div class="section">
+        <div class="api-docs-section">
             <div class="subtitle">API Documentation</div>
             <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
                 Access the full API documentation with interactive testing capabilities.
