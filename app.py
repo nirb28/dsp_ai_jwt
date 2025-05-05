@@ -1,12 +1,14 @@
 import os
 from datetime import timedelta
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, render_template
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
-    jwt_required, get_jwt_identity, decode_token
+    jwt_required, get_jwt_identity, decode_token, get_jwt
 )
 from dotenv import load_dotenv
 import logging
+import pathlib
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -23,8 +25,13 @@ from auth.file_auth import authenticate_file
 from auth.ldap_auth import authenticate_ldap, LDAP_AVAILABLE
 from utils.api_key import get_additional_claims
 
+# Ensure the templates directory exists
+templates_dir = pathlib.Path(__file__).parent / 'templates'
+templates_dir.mkdir(exist_ok=True)
+
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder=str(templates_dir))
 
 # Configure Flask-JWT-Extended
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret-key")
@@ -45,6 +52,10 @@ if AUTH_METHOD == "ldap" and not LDAP_AVAILABLE:
     AUTH_METHOD = "file"
 
 jwt = JWTManager(app)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/token', methods=['POST'])
 def login():
@@ -104,7 +115,8 @@ def login():
     access_token = create_access_token(
         identity=username, 
         additional_claims=claims,
-        expires_delta=expires_delta
+        expires_delta=expires_delta,
+        fresh=True  # Mark the token as fresh since it's from direct login
     )
     refresh_token = create_refresh_token(identity=username, additional_claims=claims)
 
@@ -139,7 +151,23 @@ def get_team_id_from_user(username, user_data):
 @jwt_required(refresh=True)
 def refresh():
     current_user = get_jwt_identity()
-    access_token = create_access_token(identity=current_user)
+    # Get all claims from the current refresh token
+    jwt_claims = get_jwt()
+    
+    # Remove JWT reserved claims that shouldn't be transferred
+    reserved_claims = ['exp', 'iat', 'nbf', 'jti', 'type', 'fresh']
+    additional_claims = {key: value for key, value in jwt_claims.items() 
+                         if key not in reserved_claims}
+    
+    # Create new access token with the same additional claims
+    access_token = create_access_token(
+        identity=current_user,
+        additional_claims=additional_claims
+    )
+    
+    # Log the claims being carried over
+    logger.info(f"Refreshing token for user {current_user} with claims: {additional_claims}")
+    
     return jsonify(access_token=access_token), 200
 
 @app.route('/decode', methods=['POST'])
@@ -162,6 +190,22 @@ def decode():
 def protected():
     current_user = get_jwt_identity()
     return jsonify(logged_in_as=current_user), 200
+
+@app.route('/sensitive-action', methods=['POST'])
+@jwt_required(fresh=True)
+def sensitive_action():
+    """This endpoint requires a fresh token (from direct login, not from refresh)"""
+    current_user = get_jwt_identity()
+    jwt_claims = get_jwt()
+    
+    # Demo of a sensitive action like password change, payment, etc.
+    return jsonify({
+        "message": "Sensitive action performed successfully",
+        "user": current_user,
+        "token_status": "Fresh token confirmed",
+        "token_freshness": jwt_claims.get('fresh', False),
+        "action_time": str(datetime.now())
+    }), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))

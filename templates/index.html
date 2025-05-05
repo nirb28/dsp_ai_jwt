@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Auth Portal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 420px;
+            background: #fff;
+            margin: 48px auto;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.09);
+            padding: 32px 28px 24px 28px;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 28px;
+            color: #34495e;
+        }
+        label {
+            display: block;
+            margin-bottom: 7px;
+            color: #2c3e50;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: 18px;
+            border: 1px solid #d0d7de;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        button {
+            width: 100%;
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 0;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: background .2s;
+        }
+        button:hover {
+            background: #115293;
+        }
+        .result, .error {
+            margin-top: 18px;
+            border-radius: 5px;
+            padding: 12px;
+            font-size: 0.98em;
+            word-break: break-all;
+        }
+        .result {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .section {
+            margin-bottom: 36px;
+        }
+        .subtitle {
+            font-size: 1.08em;
+            color: #1976d2;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        textarea {
+            width: 100%;
+            min-height: 60px;
+            border-radius: 5px;
+            border: 1px solid #d0d7de;
+            padding: 7px 10px;
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+        .copy-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin: 5px 0;
+            display: inline-block;
+            width: auto;
+        }
+        .copy-btn:hover {
+            background: #388e3c;
+        }
+        .token-container {
+            margin-top: 10px;
+        }
+        .token-row {
+            margin-bottom: 10px;
+        }
+        .token-label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .token-value {
+            background: #f1f8e9;
+            padding: 8px;
+            border-radius: 4px;
+            word-break: break-all;
+            border: 1px solid #c5e1a5;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>DSPAI JWT Auth Portal</h2>
+        <div class="section">
+            <div class="subtitle">1. Login to get JWT Token</div>
+            <form id="loginForm">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+                <label for="api_key">API Key (optional)</label>
+                <input type="text" id="api_key" name="api_key">
+                <button type="submit">Get Token</button>
+            </form>
+            <div id="tokenResult" class="result" style="display:none;">
+                <div class="token-container">
+                    <div class="token-row">
+                        <div class="token-label">Access Token:</div>
+                        <div id="access-token" class="token-value"></div>
+                        <button class="copy-btn" onclick="copyToClipboard('access-token')">Copy to Clipboard</button>
+                    </div>
+                    <div class="token-row">
+                        <div class="token-label">Refresh Token:</div>
+                        <div id="refresh-token" class="token-value"></div>
+                        <button class="copy-btn" onclick="copyToClipboard('refresh-token')">Copy to Clipboard</button>
+                    </div>
+                </div>
+            </div>
+            <div id="tokenError" class="error" style="display:none;"></div>
+        </div>
+        <div class="section">
+            <div class="subtitle">2. Decode/Test JWT Token</div>
+            <form id="decodeForm">
+                <label for="jwt_token">JWT Token</label>
+                <textarea id="jwt_token" name="jwt_token" required></textarea>
+                <button type="submit">Decode Token</button>
+            </form>
+            <div id="decodeResult" class="result" style="display:none;"></div>
+            <div id="decodeError" class="error" style="display:none;"></div>
+        </div>
+        <div class="section">
+            <div class="subtitle">3. Refresh Access Token</div>
+            <form id="refreshForm">
+                <label for="refresh_token">Refresh Token</label>
+                <textarea id="refresh_token" name="refresh_token" required></textarea>
+                <button type="submit">Get New Access Token</button>
+            </form>
+            <div id="refreshResult" class="result" style="display:none;">
+                <div class="token-container">
+                    <div class="token-row">
+                        <div class="token-label">New Access Token:</div>
+                        <div id="new-access-token" class="token-value"></div>
+                        <button class="copy-btn" onclick="copyToClipboard('new-access-token')">Copy to Clipboard</button>
+                    </div>
+                </div>
+            </div>
+            <div id="refreshError" class="error" style="display:none;"></div>
+        </div>
+        <div class="section">
+            <div class="subtitle">4. Test Token Freshness (Sensitive Action)</div>
+            <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
+                This demonstrates token freshness. Only tokens from direct login work here, not tokens from refresh.
+            </p>
+            <form id="sensitiveForm">
+                <label for="sensitive_token">Access Token</label>
+                <textarea id="sensitive_token" name="sensitive_token" required></textarea>
+                <button type="submit">Perform Sensitive Action</button>
+            </form>
+            <div id="sensitiveResult" class="result" style="display:none;"></div>
+            <div id="sensitiveError" class="error" style="display:none;"></div>
+        </div>
+    </div>
+    <script>
+        // Copy to clipboard function
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const textToCopy = element.textContent;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => {
+                        const btn = element.nextElementSibling;
+                        const originalText = btn.textContent;
+                        btn.textContent = "Copied!";
+                        setTimeout(() => {
+                            btn.textContent = originalText;
+                        }, 1500);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy: ', err);
+                    });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+                
+                const btn = element.nextElementSibling;
+                const originalText = btn.textContent;
+                btn.textContent = "Copied!";
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 1500);
+            }
+        }
+        
+        // Login form handler
+        document.getElementById('loginForm').onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById('tokenResult').style.display = 'none';
+            document.getElementById('tokenError').style.display = 'none';
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const api_key = document.getElementById('api_key').value;
+            const payload = { username, password };
+            if (api_key) payload.api_key = api_key;
+            try {
+                const resp = await fetch('/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    document.getElementById('access-token').textContent = data.access_token;
+                    document.getElementById('refresh-token').textContent = data.refresh_token;
+                    document.getElementById('tokenResult').style.display = 'block';
+                    
+                    // Auto-fill refresh token field for convenience
+                    document.getElementById('refresh_token').value = data.refresh_token;
+                } else {
+                    document.getElementById('tokenError').textContent = data.error || 'Login failed';
+                    document.getElementById('tokenError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('tokenError').textContent = 'Network or server error.';
+                document.getElementById('tokenError').style.display = 'block';
+            }
+        };
+        
+        // Decode form handler
+        document.getElementById('decodeForm').onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById('decodeResult').style.display = 'none';
+            document.getElementById('decodeError').style.display = 'none';
+            const token = document.getElementById('jwt_token').value;
+            try {
+                const resp = await fetch('/decode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    document.getElementById('decodeResult').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('decodeResult').style.display = 'block';
+                } else {
+                    document.getElementById('decodeError').textContent = data.error || 'Decode failed';
+                    document.getElementById('decodeError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('decodeError').textContent = 'Network or server error.';
+                document.getElementById('decodeError').style.display = 'block';
+            }
+        };
+        
+        // Refresh token handler
+        document.getElementById('refreshForm').onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById('refreshResult').style.display = 'none';
+            document.getElementById('refreshError').style.display = 'none';
+            const refreshToken = document.getElementById('refresh_token').value;
+            try {
+                const resp = await fetch('/refresh', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${refreshToken}`
+                    }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    document.getElementById('new-access-token').textContent = data.access_token;
+                    document.getElementById('refreshResult').style.display = 'block';
+                    
+                    // Update the decode section for convenience
+                    document.getElementById('jwt_token').value = data.access_token;
+                    
+                    // Also update the sensitive action token field for testing
+                    document.getElementById('sensitive_token').value = data.access_token;
+                } else {
+                    document.getElementById('refreshError').textContent = data.error || 'Refresh token failed';
+                    document.getElementById('refreshError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('refreshError').textContent = 'Network or server error.';
+                document.getElementById('refreshError').style.display = 'block';
+            }
+        };
+        
+        // Sensitive action handler
+        document.getElementById('sensitiveForm').onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById('sensitiveResult').style.display = 'none';
+            document.getElementById('sensitiveError').style.display = 'none';
+            
+            const token = document.getElementById('sensitive_token').value;
+            try {
+                const resp = await fetch('/sensitive-action', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    document.getElementById('sensitiveResult').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('sensitiveResult').style.display = 'block';
+                } else {
+                    document.getElementById('sensitiveError').textContent = data.error || 'Token not fresh - sensitive action denied';
+                    document.getElementById('sensitiveError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('sensitiveError').textContent = 'Network or server error.';
+                document.getElementById('sensitiveError').style.display = 'block';
+            }
+        };
+        
+        // Auto-populate the sensitive token field when getting a token from login
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            setTimeout(() => {
+                if (document.getElementById('access-token').textContent) {
+                    document.getElementById('sensitive_token').value = document.getElementById('access-token').textContent;
+                }
+            }, 500); // Small delay to ensure the token is populated first
+        });
+    </script>
+</body>
+</html>
