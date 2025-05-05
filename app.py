@@ -1,5 +1,5 @@
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime
 from flask import Flask, jsonify, request, make_response, render_template
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
@@ -8,7 +8,9 @@ from flask_jwt_extended import (
 from dotenv import load_dotenv
 import logging
 import pathlib
-from datetime import datetime
+import yaml
+import uuid
+import glob
 
 # Configure logging
 logging.basicConfig(
@@ -23,7 +25,7 @@ load_dotenv()
 # Import authentication methods
 from auth.file_auth import authenticate_file
 from auth.ldap_auth import authenticate_ldap, LDAP_AVAILABLE
-from utils.api_key import get_additional_claims
+from utils.api_key import get_additional_claims, BASE_API_KEY_FILE
 
 # Ensure the templates directory exists
 templates_dir = pathlib.Path(__file__).parent / 'templates'
@@ -206,6 +208,231 @@ def sensitive_action():
         "token_freshness": jwt_claims.get('fresh', False),
         "action_time": str(datetime.now())
     }), 200
+
+# API Key Management Endpoints
+@app.route('/api-keys', methods=['GET'])
+@jwt_required(fresh=True)
+def get_api_keys():
+    """Get a list of all API keys"""
+    # Only allow administrators to access this endpoint
+    claims = get_jwt()
+    groups = claims.get('groups', [])
+    
+    if 'administrators' not in groups and 'admins' not in groups:
+        return jsonify({"error": "Administrator access required"}), 403
+    
+    # Get API keys directory path
+    api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
+    
+    if not os.path.exists(api_keys_dir):
+        return jsonify({"error": "API keys directory not found"}), 500
+    
+    # Get all API key files (excluding base key)
+    api_key_files = glob.glob(os.path.join(api_keys_dir, "*.yaml"))
+    api_keys = []
+    
+    for key_file in api_key_files:
+        filename = os.path.basename(key_file)
+        if filename != BASE_API_KEY_FILE:
+            try:
+                with open(key_file, 'r') as f:
+                    key_data = yaml.safe_load(f)
+                    
+                api_keys.append({
+                    'filename': filename,
+                    'id': key_data.get('id', ''),
+                    'owner': key_data.get('owner', ''),
+                    'provider_permissions': key_data.get('provider_permissions', []),
+                    'endpoint_permissions': key_data.get('endpoint_permissions', []),
+                    'static_claims': key_data.get('claims', {}).get('static', {})
+                })
+            except Exception as e:
+                logger.error(f"Error reading API key file {filename}: {str(e)}")
+    
+    return jsonify(api_keys), 200
+
+@app.route('/api-keys/<api_key_id>', methods=['GET'])
+@jwt_required(fresh=True)
+def get_api_key(api_key_id):
+    """Get details for a specific API key"""
+    # Only allow administrators to access this endpoint
+    claims = get_jwt()
+    groups = claims.get('groups', [])
+    
+    if 'administrators' not in groups and 'admins' not in groups:
+        return jsonify({"error": "Administrator access required"}), 403
+    
+    # Get API keys directory path
+    api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
+    
+    # Look for the API key file
+    api_key_files = glob.glob(os.path.join(api_keys_dir, "*.yaml"))
+    
+    for key_file in api_key_files:
+        try:
+            with open(key_file, 'r') as f:
+                key_data = yaml.safe_load(f)
+                
+                if key_data.get('id') == api_key_id:
+                    return jsonify(key_data), 200
+        except Exception as e:
+            logger.error(f"Error reading API key file {key_file}: {str(e)}")
+    
+    return jsonify({"error": "API key not found"}), 404
+
+@app.route('/api-keys', methods=['POST'])
+@jwt_required(fresh=True)
+def create_api_key():
+    """Create a new API key"""
+    # Only allow administrators to access this endpoint
+    claims = get_jwt()
+    groups = claims.get('groups', [])
+    
+    if 'administrators' not in groups and 'admins' not in groups:
+        return jsonify({"error": "Administrator access required"}), 403
+    
+    # Check request data
+    if not request.is_json:
+        return jsonify({"error": "Missing JSON in request"}), 400
+    
+    data = request.json
+    
+    # Validate required fields
+    required_fields = ['owner']
+    missing_fields = [field for field in required_fields if field not in data]
+    
+    if missing_fields:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+    
+    # Generate API key string and ID
+    api_key_string = str(uuid.uuid4()).replace('-', '')
+    api_key_id = f"api-key-{str(uuid.uuid4())[:8]}"
+    
+    # Create API key data
+    api_key_data = {
+        'id': api_key_id,
+        'owner': data['owner'],
+        'provider_permissions': data.get('provider_permissions', ['openai']),
+        'endpoint_permissions': data.get('endpoint_permissions', 
+                                        ['/v1/chat/completions', '/v1/embeddings']),
+        'claims': {
+            'static': data.get('static_claims', {
+                'models': ['gpt-3.5-turbo'],
+                'rate_limit': 20,
+                'tier': 'standard',
+                'exp_hours': 1
+            }),
+            'dynamic': data.get('dynamic_claims', {})
+        }
+    }
+    
+    # Get API keys directory path
+    api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
+    
+    # Ensure API keys directory exists
+    if not os.path.exists(api_keys_dir):
+        os.makedirs(api_keys_dir)
+    
+    # Save API key to file
+    api_key_file = os.path.join(api_keys_dir, f"{api_key_string}.yaml")
+    
+    try:
+        with open(api_key_file, 'w') as f:
+            yaml.dump(api_key_data, f, default_flow_style=False)
+    except Exception as e:
+        logger.error(f"Error creating API key file: {str(e)}")
+        return jsonify({"error": f"Failed to create API key: {str(e)}"}), 500
+    
+    # Return API key data with the key string
+    return jsonify({
+        **api_key_data,
+        'api_key': api_key_string
+    }), 201
+
+@app.route('/api-keys/<api_key_string>', methods=['PUT'])
+@jwt_required(fresh=True)
+def update_api_key(api_key_string):
+    """Update an existing API key"""
+    # Only allow administrators to access this endpoint
+    claims = get_jwt()
+    groups = claims.get('groups', [])
+    
+    if 'administrators' not in groups and 'admins' not in groups:
+        return jsonify({"error": "Administrator access required"}), 403
+    
+    # Check request data
+    if not request.is_json:
+        return jsonify({"error": "Missing JSON in request"}), 400
+    
+    data = request.json
+    
+    # Get API keys directory path
+    api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
+    
+    # Check if API key file exists
+    api_key_file = os.path.join(api_keys_dir, f"{api_key_string}.yaml")
+    
+    if not os.path.exists(api_key_file):
+        return jsonify({"error": "API key not found"}), 404
+    
+    try:
+        # Read existing API key data
+        with open(api_key_file, 'r') as f:
+            existing_data = yaml.safe_load(f)
+        
+        # Update API key data with new values while preserving the ID
+        api_key_id = existing_data['id']
+        
+        # Update fields from request data
+        updated_data = {
+            'id': api_key_id,  # Preserve original ID
+            'owner': data.get('owner', existing_data.get('owner')),
+            'provider_permissions': data.get('provider_permissions', 
+                                          existing_data.get('provider_permissions', [])),
+            'endpoint_permissions': data.get('endpoint_permissions', 
+                                          existing_data.get('endpoint_permissions', [])),
+            'claims': {
+                'static': data.get('static_claims', existing_data.get('claims', {}).get('static', {})),
+                'dynamic': data.get('dynamic_claims', existing_data.get('claims', {}).get('dynamic', {}))
+            }
+        }
+        
+        # Save updated API key to file
+        with open(api_key_file, 'w') as f:
+            yaml.dump(updated_data, f, default_flow_style=False)
+        
+        return jsonify(updated_data), 200
+    except Exception as e:
+        logger.error(f"Error updating API key: {str(e)}")
+        return jsonify({"error": f"Failed to update API key: {str(e)}"}), 500
+
+@app.route('/api-keys/<api_key_string>', methods=['DELETE'])
+@jwt_required(fresh=True)
+def delete_api_key(api_key_string):
+    """Delete an API key"""
+    # Only allow administrators to access this endpoint
+    claims = get_jwt()
+    groups = claims.get('groups', [])
+    
+    if 'administrators' not in groups and 'admins' not in groups:
+        return jsonify({"error": "Administrator access required"}), 403
+    
+    # Get API keys directory path
+    api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
+    
+    # Check if API key file exists
+    api_key_file = os.path.join(api_keys_dir, f"{api_key_string}.yaml")
+    
+    if not os.path.exists(api_key_file):
+        return jsonify({"error": "API key not found"}), 404
+    
+    try:
+        # Delete API key file
+        os.remove(api_key_file)
+        return jsonify({"message": "API key deleted successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error deleting API key: {str(e)}")
+        return jsonify({"error": f"Failed to delete API key: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))

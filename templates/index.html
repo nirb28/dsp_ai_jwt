@@ -123,6 +123,110 @@
             max-height: 80px;
             overflow-y: auto;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: 500;
+        }
+        .action-btn {
+            background: transparent;
+            border: none;
+            color: #2196f3;
+            cursor: pointer;
+            padding: 3px 8px;
+            margin-right: 5px;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+        .action-btn:hover {
+            background: #e3f2fd;
+        }
+        .action-btn.delete {
+            color: #f44336;
+        }
+        .action-btn.delete:hover {
+            background: #ffebee;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+        .close-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .field-group {
+            margin-bottom: 15px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom-color: #1976d2;
+            color: #1976d2;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .api-key-value {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            word-break: break-all;
+            border: 1px solid #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -196,7 +300,126 @@
             <div id="sensitiveResult" class="result" style="display:none;"></div>
             <div id="sensitiveError" class="error" style="display:none;"></div>
         </div>
+        
+        <div class="section" id="apiKeySection" style="display:none;">
+            <div class="subtitle">5. API Key Management</div>
+            <p style="font-size: 0.9em; margin-bottom: 15px; color: #555;">
+                Manage API keys (administrators only)
+            </p>
+            <button class="copy-btn" style="margin-bottom: 15px;" onclick="createApiKey()">Create New API Key</button>
+            
+            <div id="apiKeysTable" style="margin-top: 15px; overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Owner</th>
+                            <th>Providers</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="apiKeysBody">
+                        <!-- API keys will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="apiKeyError" class="error" style="display:none;"></div>
+        </div>
     </div>
+    
+    <!-- API Key Create/Edit Modal -->
+    <div id="apiKeyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Create API Key</div>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="apiKeyForm">
+                <input type="hidden" id="apiKeyString" name="apiKeyString">
+                <div class="field-group">
+                    <label for="owner">Owner</label>
+                    <input type="text" id="owner" name="owner" required>
+                </div>
+                
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab(event, 'basicTab')">Basic</div>
+                    <div class="tab" onclick="switchTab(event, 'permissionsTab')">Permissions</div>
+                    <div class="tab" onclick="switchTab(event, 'claimsTab')">Claims</div>
+                </div>
+                
+                <div id="basicTab" class="tab-content active">
+                    <div class="field-group">
+                        <label>Provider Permissions</label>
+                        <div>
+                            <input type="checkbox" id="openai" name="provider_openai" checked>
+                            <label for="openai">OpenAI</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="groq" name="provider_groq">
+                            <label for="groq">Groq</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="anthropic" name="provider_anthropic">
+                            <label for="anthropic">Anthropic</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="permissionsTab" class="tab-content">
+                    <div class="field-group">
+                        <label>Endpoint Permissions</label>
+                        <div>
+                            <input type="checkbox" id="chat_completions" name="endpoint_chat_completions" checked>
+                            <label for="chat_completions">/v1/chat/completions</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="embeddings" name="endpoint_embeddings" checked>
+                            <label for="embeddings">/v1/embeddings</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="completions" name="endpoint_completions">
+                            <label for="completions">/v1/completions</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="claimsTab" class="tab-content">
+                    <div class="field-group">
+                        <label for="models">Models (comma-separated)</label>
+                        <input type="text" id="models" name="models" value="gpt-3.5-turbo">
+                    </div>
+                    <div class="field-group">
+                        <label for="rate_limit">Rate Limit</label>
+                        <input type="number" id="rate_limit" name="rate_limit" value="20" min="1">
+                    </div>
+                    <div class="field-group">
+                        <label for="tier">Tier</label>
+                        <select id="tier" name="tier">
+                            <option value="standard" selected>Standard</option>
+                            <option value="premium">Premium</option>
+                            <option value="enterprise">Enterprise</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label for="exp_hours">Token Expiration (hours)</label>
+                        <input type="number" id="exp_hours" name="exp_hours" value="1" min="1">
+                    </div>
+                </div>
+                
+                <button type="submit">Save API Key</button>
+            </form>
+            
+            <div id="apiKeyResult" class="result" style="display:none;">
+                <div class="field-group">
+                    <label>API Key (copy this, it won't be shown again)</label>
+                    <div id="newApiKey" class="api-key-value"></div>
+                    <button class="copy-btn" style="margin-top: 10px;" onclick="copyToClipboard('newApiKey')">Copy to Clipboard</button>
+                </div>
+            </div>
+            <div id="modalError" class="error" style="display:none;"></div>
+        </div>
+    </div>
+    
     <script>
         // Copy to clipboard function
         function copyToClipboard(elementId) {
@@ -365,6 +588,321 @@
                 }
             }, 500); // Small delay to ensure the token is populated first
         });
+        
+        // Check if user is an admin and show API key management section
+        function checkAdminAccess() {
+            const token = document.getElementById('access-token').textContent;
+            if (!token) return;
+            
+            try {
+                // Parse JWT payload (middle part)
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const groups = payload.groups || [];
+                
+                if (groups.includes('administrators') || groups.includes('admins')) {
+                    document.getElementById('apiKeySection').style.display = 'block';
+                    loadApiKeys();
+                }
+            } catch (err) {
+                console.error('Error checking admin access:', err);
+            }
+        }
+        
+        // Load API keys when token is received
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            setTimeout(checkAdminAccess, 1000);
+        });
+        
+        // Load API keys
+        async function loadApiKeys() {
+            const token = document.getElementById('access-token').textContent;
+            if (!token) return;
+            
+            try {
+                const resp = await fetch('/api-keys', {
+                    method: 'GET',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (resp.ok) {
+                    const apiKeys = await resp.json();
+                    const tbody = document.getElementById('apiKeysBody');
+                    tbody.innerHTML = '';
+                    
+                    apiKeys.forEach(key => {
+                        const tr = document.createElement('tr');
+                        
+                        // Extract API key string from filename
+                        const apiKeyString = key.filename.replace('.yaml', '');
+                        
+                        tr.innerHTML = `
+                            <td>${key.id}</td>
+                            <td>${key.owner}</td>
+                            <td>${key.provider_permissions.join(', ')}</td>
+                            <td>
+                                <button class="action-btn" onclick="editApiKey('${apiKeyString}')">Edit</button>
+                                <button class="action-btn delete" onclick="deleteApiKey('${apiKeyString}')">Delete</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    
+                    if (apiKeys.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No API keys found</td></tr>';
+                    }
+                } else {
+                    const data = await resp.json();
+                    document.getElementById('apiKeyError').textContent = data.error || 'Failed to load API keys';
+                    document.getElementById('apiKeyError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('apiKeyError').textContent = 'Network or server error';
+                document.getElementById('apiKeyError').style.display = 'block';
+            }
+        }
+        
+        // Open modal to create new API key
+        function createApiKey() {
+            document.getElementById('modalTitle').textContent = 'Create API Key';
+            document.getElementById('apiKeyForm').reset();
+            document.getElementById('apiKeyString').value = '';
+            document.getElementById('apiKeyResult').style.display = 'none';
+            document.getElementById('modalError').style.display = 'none';
+            
+            // Switch to first tab
+            switchTab(null, 'basicTab');
+            
+            document.getElementById('apiKeyModal').style.display = 'flex';
+        }
+        
+        // Edit API key
+        async function editApiKey(apiKeyString) {
+            const token = document.getElementById('access-token').textContent;
+            if (!token) return;
+            
+            document.getElementById('modalTitle').textContent = 'Edit API Key';
+            document.getElementById('apiKeyForm').reset();
+            document.getElementById('apiKeyString').value = apiKeyString;
+            document.getElementById('apiKeyResult').style.display = 'none';
+            document.getElementById('modalError').style.display = 'none';
+            
+            try {
+                // Load API key details
+                const resp = await fetch(`/api-keys/${apiKeyString}`, {
+                    method: 'GET',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (resp.ok) {
+                    const key = await resp.json();
+                    
+                    // Fill form with API key data
+                    document.getElementById('owner').value = key.owner || '';
+                    
+                    // Set provider permissions
+                    const providers = key.provider_permissions || [];
+                    document.getElementById('openai').checked = providers.includes('openai');
+                    document.getElementById('groq').checked = providers.includes('groq');
+                    document.getElementById('anthropic').checked = providers.includes('anthropic');
+                    
+                    // Set endpoint permissions
+                    const endpoints = key.endpoint_permissions || [];
+                    document.getElementById('chat_completions').checked = endpoints.includes('/v1/chat/completions');
+                    document.getElementById('embeddings').checked = endpoints.includes('/v1/embeddings');
+                    document.getElementById('completions').checked = endpoints.includes('/v1/completions');
+                    
+                    // Set claims
+                    const staticClaims = key.claims?.static || {};
+                    document.getElementById('models').value = staticClaims.models?.join(', ') || 'gpt-3.5-turbo';
+                    document.getElementById('rate_limit').value = staticClaims.rate_limit || 20;
+                    document.getElementById('tier').value = staticClaims.tier || 'standard';
+                    document.getElementById('exp_hours').value = staticClaims.exp_hours || 1;
+                    
+                    // Switch to first tab
+                    switchTab(null, 'basicTab');
+                    
+                    document.getElementById('apiKeyModal').style.display = 'flex';
+                } else {
+                    const data = await resp.json();
+                    document.getElementById('apiKeyError').textContent = data.error || 'Failed to load API key details';
+                    document.getElementById('apiKeyError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('apiKeyError').textContent = 'Network or server error';
+                document.getElementById('apiKeyError').style.display = 'block';
+            }
+        }
+        
+        // Delete API key
+        async function deleteApiKey(apiKeyString) {
+            if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
+                return;
+            }
+            
+            const token = document.getElementById('access-token').textContent;
+            if (!token) return;
+            
+            try {
+                const resp = await fetch(`/api-keys/${apiKeyString}`, {
+                    method: 'DELETE',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (resp.ok) {
+                    loadApiKeys();
+                } else {
+                    const data = await resp.json();
+                    document.getElementById('apiKeyError').textContent = data.error || 'Failed to delete API key';
+                    document.getElementById('apiKeyError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('apiKeyError').textContent = 'Network or server error';
+                document.getElementById('apiKeyError').style.display = 'block';
+            }
+        }
+        
+        // Close modal
+        function closeModal() {
+            document.getElementById('apiKeyModal').style.display = 'none';
+        }
+        
+        // Switch tabs in modal
+        function switchTab(event, tabId) {
+            if (event) {
+                event.preventDefault();
+            }
+            
+            // Hide all tab contents
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            
+            // Remove active class from all tabs
+            const tabs = document.getElementsByClassName('tab');
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            
+            // Show selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active class to selected tab
+            if (event) {
+                event.currentTarget.classList.add('active');
+            } else {
+                // Find tab by tabId and add active class
+                const tab = document.querySelector(`.tab[onclick*="${tabId}"]`);
+                if (tab) tab.classList.add('active');
+            }
+        }
+        
+        // Handle API key form submission
+        document.getElementById('apiKeyForm').onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById('apiKeyResult').style.display = 'none';
+            document.getElementById('modalError').style.display = 'none';
+            
+            const token = document.getElementById('access-token').textContent;
+            if (!token) return;
+            
+            // Get form data
+            const owner = document.getElementById('owner').value;
+            
+            // Get provider permissions
+            const providerPermissions = [];
+            if (document.getElementById('openai').checked) providerPermissions.push('openai');
+            if (document.getElementById('groq').checked) providerPermissions.push('groq');
+            if (document.getElementById('anthropic').checked) providerPermissions.push('anthropic');
+            
+            // Get endpoint permissions
+            const endpointPermissions = [];
+            if (document.getElementById('chat_completions').checked) endpointPermissions.push('/v1/chat/completions');
+            if (document.getElementById('embeddings').checked) endpointPermissions.push('/v1/embeddings');
+            if (document.getElementById('completions').checked) endpointPermissions.push('/v1/completions');
+            
+            // Get models
+            const modelsInput = document.getElementById('models').value;
+            const models = modelsInput.split(',').map(m => m.trim()).filter(m => m);
+            
+            // Create payload
+            const payload = {
+                owner,
+                provider_permissions: providerPermissions,
+                endpoint_permissions: endpointPermissions,
+                static_claims: {
+                    models,
+                    rate_limit: parseInt(document.getElementById('rate_limit').value, 10),
+                    tier: document.getElementById('tier').value,
+                    exp_hours: parseInt(document.getElementById('exp_hours').value, 10)
+                }
+            };
+            
+            // Get API key string for edit mode
+            const apiKeyString = document.getElementById('apiKeyString').value;
+            
+            try {
+                let resp;
+                
+                if (apiKeyString) {
+                    // Update existing API key
+                    resp = await fetch(`/api-keys/${apiKeyString}`, {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // Create new API key
+                    resp = await fetch('/api-keys', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                }
+                
+                const data = await resp.json();
+                
+                if (resp.ok) {
+                    if (!apiKeyString) {
+                        // Show new API key
+                        document.getElementById('newApiKey').textContent = data.api_key;
+                        document.getElementById('apiKeyResult').style.display = 'block';
+                    } else {
+                        // Close modal after successful update
+                        closeModal();
+                    }
+                    
+                    // Reload API keys list
+                    loadApiKeys();
+                } else {
+                    document.getElementById('modalError').textContent = data.error || 'Failed to save API key';
+                    document.getElementById('modalError').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('modalError').textContent = 'Network or server error';
+                document.getElementById('modalError').style.display = 'block';
+            }
+        };
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('apiKeyModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
     </script>
 </body>
 </html>
