@@ -216,6 +216,51 @@ def decode():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route('/validate', methods=['POST'])
+def validate_token():
+    """Validate a JWT token's signature and expiration"""
+    if not request.is_json:
+        return jsonify({"error": "Missing JSON in request"}), 400
+
+    token = request.json.get('token', None)
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+    
+    try:
+        # Attempt to decode the token with verify=True (default) to check signature
+        # This will raise an exception if signature is invalid or token is expired
+        decoded = decode_token(token)
+        
+        # If we get here, token is valid
+        expiry = datetime.utcfromtimestamp(decoded['exp']).strftime('%Y-%m-%d %H:%M:%S UTC')
+        issue_time = datetime.utcfromtimestamp(decoded['iat']).strftime('%Y-%m-%d %H:%M:%S UTC')
+        
+        # Check if token is expired
+        is_expired = datetime.utcfromtimestamp(decoded['exp']) < datetime.utcnow()
+        
+        return jsonify({
+            "valid": True,
+            "signature_verified": True,
+            "expired": is_expired,
+            "expiry_time": expiry,
+            "issued_at": issue_time,
+            "issuer": decoded.get('iss', 'Not specified'),
+            "subject": decoded.get('sub', 'Not specified')
+        }), 200
+    except Exception as e:
+        # Determine type of error
+        error_msg = str(e)
+        signature_failed = "signature" in error_msg.lower()
+        expired = "expired" in error_msg.lower()
+        
+        # Return detailed validation result
+        return jsonify({
+            "valid": False,
+            "signature_verified": not signature_failed,
+            "expired": expired,
+            "error": error_msg
+        }), 200  # Return 200 even for invalid tokens, as this is expected behavior
+
 @app.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():

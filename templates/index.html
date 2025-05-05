@@ -265,9 +265,14 @@
                 <label for="jwt_token">JWT Token</label>
                 <textarea id="jwt_token" name="jwt_token" required></textarea>
                 <button type="submit">Decode Token</button>
+                <button type="button" onclick="validateToken()" style="background: #673ab7;">Validate Signature</button>
             </form>
             <div id="decodeResult" class="result" style="display:none;"></div>
             <div id="decodeError" class="error" style="display:none;"></div>
+            <div id="validateResult" class="result" style="display:none;">
+                <div style="margin-bottom: 12px; font-weight: 500;">Validation Results:</div>
+                <div id="validation-details"></div>
+            </div>
         </div>
         <div class="section">
             <div class="subtitle">3. Refresh Access Token</div>
@@ -506,6 +511,7 @@
             e.preventDefault();
             document.getElementById('decodeResult').style.display = 'none';
             document.getElementById('decodeError').style.display = 'none';
+            document.getElementById('validateResult').style.display = 'none';
             const token = document.getElementById('jwt_token').value;
             try {
                 const resp = await fetch('/decode', {
@@ -526,6 +532,71 @@
                 document.getElementById('decodeError').style.display = 'block';
             }
         };
+        
+        // Signature validation handler
+        async function validateToken() {
+            document.getElementById('decodeResult').style.display = 'none';
+            document.getElementById('decodeError').style.display = 'none';
+            document.getElementById('validateResult').style.display = 'none';
+            
+            const token = document.getElementById('jwt_token').value;
+            if (!token) {
+                document.getElementById('decodeError').textContent = 'Please enter a token to validate';
+                document.getElementById('decodeError').style.display = 'block';
+                return;
+            }
+            
+            try {
+                const resp = await fetch('/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                
+                const data = await resp.json();
+                
+                // Create a styled validation result
+                let resultHtml = '';
+                
+                if (data.valid) {
+                    resultHtml += `<div style="color: #2e7d32; margin-bottom: 8px;"><strong>✓ Valid JWT Token</strong></div>`;
+                    resultHtml += `<div><strong>Signature:</strong> <span style="color: #2e7d32;">Verified</span></div>`;
+                    resultHtml += data.expired ? 
+                        `<div><strong>Expiration:</strong> <span style="color: #c62828;">Token expired</span></div>` :
+                        `<div><strong>Expiration:</strong> <span style="color: #2e7d32;">Valid (not expired)</span></div>`;
+                    
+                    resultHtml += `<div><strong>Expiry Time:</strong> ${data.expiry_time}</div>`;
+                    resultHtml += `<div><strong>Issued At:</strong> ${data.issued_at}</div>`;
+                    
+                    if (data.issuer !== 'Not specified') {
+                        resultHtml += `<div><strong>Issuer:</strong> ${data.issuer}</div>`;
+                    }
+                    
+                    if (data.subject !== 'Not specified') {
+                        resultHtml += `<div><strong>Subject:</strong> ${data.subject}</div>`;
+                    }
+                } else {
+                    resultHtml += `<div style="color: #c62828; margin-bottom: 8px;"><strong>✗ Invalid JWT Token</strong></div>`;
+                    
+                    if (!data.signature_verified) {
+                        resultHtml += `<div><strong>Signature:</strong> <span style="color: #c62828;">Invalid - token may be tampered with or using wrong secret key</span></div>`;
+                    }
+                    
+                    if (data.expired) {
+                        resultHtml += `<div><strong>Expiration:</strong> <span style="color: #c62828;">Token expired</span></div>`;
+                    }
+                    
+                    resultHtml += `<div><strong>Error Details:</strong> ${data.error}</div>`;
+                }
+                
+                document.getElementById('validation-details').innerHTML = resultHtml;
+                document.getElementById('validateResult').style.display = 'block';
+                
+            } catch (err) {
+                document.getElementById('decodeError').textContent = 'Network or server error during validation.';
+                document.getElementById('decodeError').style.display = 'block';
+            }
+        }
         
         // Refresh token handler
         document.getElementById('refreshForm').onsubmit = async function(e) {

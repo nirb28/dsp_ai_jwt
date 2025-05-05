@@ -197,6 +197,52 @@ decode_endpoint = {
     }
 }
 
+# Define the validate token endpoint
+validate_endpoint = {
+    "post": {
+        "tags": ["token"],
+        "summary": "Validate JWT token signature",
+        "description": "Validate a JWT token's signature and check if it has expired",
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["token"],
+                        "properties": {
+                            "token": {"type": "string"}
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "Token validation results",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "valid": {"type": "boolean"},
+                                "signature_verified": {"type": "boolean"},
+                                "expired": {"type": "boolean"},
+                                "expiry_time": {"type": "string"},
+                                "issued_at": {"type": "string"},
+                                "issuer": {"type": "string"},
+                                "subject": {"type": "string"},
+                                "error": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            },
+            "400": {"description": "Missing token"}
+        }
+    }
+}
+
 # Define the protected endpoint
 protected_endpoint = {
     "get": {
@@ -433,6 +479,7 @@ delete_api_key_endpoint = {
 spec.path(path="/token", operations=login_endpoint)
 spec.path(path="/refresh", operations=refresh_endpoint)
 spec.path(path="/decode", operations=decode_endpoint)
+spec.path(path="/validate", operations=validate_endpoint)
 spec.path(path="/protected", operations=protected_endpoint)
 spec.path(path="/sensitive-action", operations=sensitive_action_endpoint)
 spec.path(path="/api-keys", operations={**get_api_keys_endpoint, **create_api_key_endpoint})
