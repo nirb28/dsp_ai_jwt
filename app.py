@@ -1,6 +1,6 @@
 import os
 from datetime import timedelta, datetime
-from flask import Flask, jsonify, request, make_response, render_template
+from flask import Flask, jsonify, request, make_response, render_template, send_from_directory
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity, decode_token, get_jwt
@@ -11,6 +11,8 @@ import pathlib
 import yaml
 import uuid
 import glob
+from flask_swagger_ui import get_swaggerui_blueprint
+from swagger_config import get_swagger_dict, get_swagger_json, get_swagger_yaml
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +36,33 @@ templates_dir.mkdir(exist_ok=True)
 # Initialize Flask app
 app = Flask(__name__, 
             template_folder=str(templates_dir))
+
+# Configure Swagger UI
+SWAGGER_URL = '/dspai-docs'  # URL for exposing Swagger UI
+API_URL = '/swagger.json'  # Where to get the swagger spec from
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "JWT Auth API Documentation",
+        'deepLinking': True,
+        'defaultModelsExpandDepth': 2,
+        'defaultModelExpandDepth': 2,
+    }
+)
+
+# Register the Swagger UI blueprint
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+# Endpoints to serve the Swagger specification
+@app.route('/swagger.json')
+def swagger_json():
+    return get_swagger_json()
+
+@app.route('/swagger.yaml')
+def swagger_yaml():
+    return get_swagger_yaml()
 
 # Configure Flask-JWT-Extended
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret-key")
