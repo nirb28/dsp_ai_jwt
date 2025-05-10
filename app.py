@@ -96,6 +96,7 @@ def login():
     username = request.json.get('username', None)
     password = request.json.get('password', None)
     api_key = request.json.get('api_key', None)
+    custom_secret = request.json.get('secret', None)
 
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
@@ -142,16 +143,63 @@ def login():
         # Remove exp_hours from claims to avoid conflicts
         claims.pop('exp_hours')
     
-    # Create tokens with custom expiration if specified
-    access_token = create_access_token(
-        identity=username, 
-        additional_claims=claims,
-        expires_delta=expires_delta,
-        fresh=True  # Mark the token as fresh since it's from direct login
-    )
-    refresh_token = create_refresh_token(identity=username, additional_claims=claims)
-
-    return jsonify(access_token=access_token, refresh_token=refresh_token), 200
+    # If custom secret is provided, use it with PyJWT directly instead of flask_jwt_extended
+    if custom_secret:
+        import jwt
+        import datetime as dt
+        
+        # Log that we're using a custom secret
+        logger.info(f"Using custom secret for token generation")
+        
+        # Prepare the payload with the standard JWT claims
+        now = dt.datetime.now(dt.timezone.utc)
+        access_token_exp = now + expires_delta
+        refresh_token_exp = now + app.config["JWT_REFRESH_TOKEN_EXPIRES"]
+        
+        # Add standard JWT claims to the payload
+        access_payload = {
+            "iat": now,
+            "nbf": now,
+            "jti": str(uuid.uuid4()),
+            "exp": access_token_exp,
+            "sub": username,
+            "type": "access",
+            "fresh": True,
+            **claims  # Include all the additional claims
+        }
+        
+        refresh_payload = {
+            "iat": now,
+            "nbf": now,
+            "jti": str(uuid.uuid4()),
+            "exp": refresh_token_exp,
+            "sub": username,
+            "type": "refresh",
+            **claims  # Include all the additional claims
+        }
+        
+        # Generate the tokens using PyJWT directly with the custom secret
+        algorithm = app.config.get('JWT_ALGORITHM', 'HS256')
+        access_token = jwt.encode(access_payload, custom_secret, algorithm=algorithm)
+        refresh_token = jwt.encode(refresh_payload, custom_secret, algorithm=algorithm)
+        
+        # Add note to response indicating custom secret was used
+        return jsonify({
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "note": "Tokens generated with custom secret - will not be usable with standard application routes unless the same secret is provided for verification"
+        }), 200
+    else:
+        # Standard token creation with application secret
+        access_token = create_access_token(
+            identity=username, 
+            additional_claims=claims,
+            expires_delta=expires_delta,
+            fresh=True  # Mark the token as fresh since it's from direct login
+        )
+        refresh_token = create_refresh_token(identity=username, additional_claims=claims)
+        
+        return jsonify(access_token=access_token, refresh_token=refresh_token), 200
 
 def get_team_id_from_user(username, user_data):
     """
@@ -211,11 +259,23 @@ def decode():
         return jsonify({"error": "Missing token"}), 400
         
     skip_verification = request.json.get('skipVerification', False)
+    custom_secret = request.json.get('secret')
+    
+    # Determine which secret to use
+    secret_key = custom_secret if custom_secret else app.config['JWT_SECRET_KEY']
+    algorithm = app.config['JWT_ALGORITHM']
     
     try:
         # First attempt standard verification
         try:
-            decoded = decode_token(token)
+            import jwt
+            if custom_secret:
+                # Use custom secret if provided
+                decoded = jwt.decode(token, secret_key, algorithms=[algorithm])
+                decoded["note"] = "Decoded using provided custom secret"
+            else:
+                # Use system default decode_token method
+                decoded = decode_token(token)
             return jsonify(decoded), 200
         except Exception as e:
             # If verification fails and skipVerification is enabled, try decoding without verification
@@ -225,13 +285,18 @@ def decode():
                     import jwt
                     decoded = jwt.decode(token, options={"verify_signature": False})
                     decoded["warning"] = "Token signature verification was skipped! This token may not be valid."
+                    if custom_secret:
+                        decoded["note"] = "Custom secret was provided but not used due to skip verification"
                     return jsonify(decoded), 200
                 except Exception as inner_e:
                     # If even non-verified decoding fails, it's likely not a valid JWT format
                     return jsonify({"error": f"Invalid token format: {str(inner_e)}"}), 400
             else:
                 # If not skipping verification, return the original error
-                return jsonify({"error": str(e)}), 400
+                error_msg = str(e)
+                if custom_secret:
+                    error_msg += " (using provided custom secret)"
+                return jsonify({"error": error_msg}), 400
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
@@ -555,11 +620,21 @@ def request_debug_info():
         token = auth_header.split(' ')[1]
         jwt_info["token"] = token
         
+        # Check for custom secret in query parameters
+        custom_secret = request.args.get('secret', None)
+        if custom_secret:
+            jwt_info["using_custom_secret"] = True
+            
+        # Determine which secret to use
+        secret_key = custom_secret if custom_secret else app.config['JWT_SECRET_KEY']
+        algorithm = app.config['JWT_ALGORITHM']
+        
         # Try to decode the token without verification
         try:
             # First attempt standard verification
             try:
-                decoded = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
+                import jwt
+                decoded = jwt.decode(token, secret_key, algorithms=[algorithm])
                 jwt_info["decoded"] = decoded
                 jwt_info["verified"] = True
             except Exception as e:

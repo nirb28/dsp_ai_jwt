@@ -280,6 +280,8 @@
                         <input type="password" id="password" name="password" required>
                         <label for="api_key">API Key (optional)</label>
                         <input type="text" id="api_key" name="api_key">
+                        <label for="token_secret">Secret Key (optional)</label>
+                        <input type="text" id="token_secret" name="token_secret" placeholder="Leave empty to use system default secret">
                         <button type="submit">Get Token</button>
                     </form>
                     <div id="tokenResult" class="result" style="display:none;">
@@ -334,6 +336,9 @@
                     <form id="decodeForm">
                         <label for="jwt_token">JWT Token</label>
                         <textarea id="jwt_token" name="jwt_token" required></textarea>
+                        
+                        <label for="jwt_secret">Secret Key (Optional)</label>
+                        <input type="text" id="jwt_secret" name="jwt_secret" placeholder="Leave empty to use system default secret">
                         <div style="display: flex; align-items: center; margin-bottom: 10px;">
                             <input type="checkbox" id="skipVerification" name="skipVerification">
                             <label for="skipVerification" style="margin-left: 8px; font-size: 14px;">Skip signature verification (show content even if invalid)</label>
@@ -535,8 +540,10 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const api_key = document.getElementById('api_key').value;
+            const secret = document.getElementById('token_secret').value.trim();
             const payload = { username, password };
             if (api_key) payload.api_key = api_key;
+            if (secret) payload.secret = secret;
             try {
                 const resp = await fetch('/token', {
                     method: 'POST',
@@ -569,11 +576,12 @@
             document.getElementById('validateResult').style.display = 'none';
             const token = document.getElementById('jwt_token').value;
             const skipVerification = document.getElementById('skipVerification').checked;
+            const secret = document.getElementById('jwt_secret').value.trim();
             try {
                 const resp = await fetch('/decode', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token, skipVerification })
+                    body: JSON.stringify({ token, skipVerification, secret: secret || null })
                 });
                 const data = await resp.json();
                 if (resp.ok) {
