@@ -508,5 +508,36 @@ def delete_api_key(api_key_string):
         logger.error(f"Error deleting API key: {str(e)}")
         return jsonify({"error": f"Failed to delete API key: {str(e)}"}), 500
 
+
+@app.route('/debug/request-info', methods=['GET', 'POST'])
+def request_debug_info():
+    """
+    Endpoint that returns detailed information about the current request and response.
+    Useful for debugging HTTP interactions and API testing.
+    """
+    # Collect request information
+    request_info = {
+        "headers": dict(request.headers),
+        "method": request.method,
+        "url": request.url,
+        "path": request.path,
+        "args": dict(request.args),
+        "form": dict(request.form) if request.form else None,
+        "json": request.get_json(silent=True),
+        "cookies": dict(request.cookies),
+        "remote_addr": request.remote_addr,
+    }
+    
+    # Create response with detailed information
+    response_data = {
+        "request_info": request_info,
+        "response_info": {
+            "status_code": 200,
+            "timestamp": str(datetime.now())
+        }
+    }
+    
+    return jsonify(response_data), 200
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
