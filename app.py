@@ -209,12 +209,31 @@ def decode():
     token = request.json.get('token', None)
     if not token:
         return jsonify({"error": "Missing token"}), 400
-
+        
+    skip_verification = request.json.get('skipVerification', False)
+    
     try:
-        decoded = decode_token(token)
-        return jsonify(decoded), 200
+        # First attempt standard verification
+        try:
+            decoded = decode_token(token)
+            return jsonify(decoded), 200
+        except Exception as e:
+            # If verification fails and skipVerification is enabled, try decoding without verification
+            if skip_verification:
+                # Decode without verification for debugging purposes
+                try:
+                    import jwt
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    decoded["warning"] = "Token signature verification was skipped! This token may not be valid."
+                    return jsonify(decoded), 200
+                except Exception as inner_e:
+                    # If even non-verified decoding fails, it's likely not a valid JWT format
+                    return jsonify({"error": f"Invalid token format: {str(inner_e)}"}), 400
+            else:
+                # If not skipping verification, return the original error
+                return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 @app.route('/validate', methods=['POST'])
 def validate_token():
@@ -514,6 +533,7 @@ def request_debug_info():
     """
     Endpoint that returns detailed information about the current request and response.
     Useful for debugging HTTP interactions and API testing.
+    Will attempt to decode JWT tokens even if verification fails.
     """
     # Collect request information
     request_info = {
@@ -528,9 +548,36 @@ def request_debug_info():
         "remote_addr": request.remote_addr,
     }
     
+    # Check for JWT token in Authorization header
+    jwt_info = {}
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        jwt_info["token"] = token
+        
+        # Try to decode the token without verification
+        try:
+            # First attempt standard verification
+            try:
+                decoded = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
+                jwt_info["decoded"] = decoded
+                jwt_info["verified"] = True
+            except Exception as e:
+                # If verification fails, try decoding without verification
+                jwt_info["verification_error"] = str(e)
+                jwt_info["verified"] = False
+                jwt_info["warning"] = "Token signature verification failed! Showing unverified token contents."
+                
+                # Decode without verification
+                decoded = jwt.decode(token, options={"verify_signature": False})
+                jwt_info["decoded"] = decoded
+        except Exception as e:
+            jwt_info["error"] = f"Failed to decode token: {str(e)}"
+    
     # Create response with detailed information
     response_data = {
         "request_info": request_info,
+        "jwt_info": jwt_info if jwt_info else None,
         "response_info": {
             "status_code": 200,
             "timestamp": str(datetime.now())

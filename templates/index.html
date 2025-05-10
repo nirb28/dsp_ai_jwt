@@ -334,6 +334,10 @@
                     <form id="decodeForm">
                         <label for="jwt_token">JWT Token</label>
                         <textarea id="jwt_token" name="jwt_token" required></textarea>
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <input type="checkbox" id="skipVerification" name="skipVerification">
+                            <label for="skipVerification" style="margin-left: 8px; font-size: 14px;">Skip signature verification (show content even if invalid)</label>
+                        </div>
                         <div style="display: flex; gap: 10px;">
                             <button type="submit" style="flex: 1;">Decode Token</button>
                             <button type="button" onclick="validateToken()" style="flex: 1; background: #673ab7;">Validate Signature</button>
@@ -564,11 +568,12 @@
             document.getElementById('decodeError').style.display = 'none';
             document.getElementById('validateResult').style.display = 'none';
             const token = document.getElementById('jwt_token').value;
+            const skipVerification = document.getElementById('skipVerification').checked;
             try {
                 const resp = await fetch('/decode', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token })
+                    body: JSON.stringify({ token, skipVerification })
                 });
                 const data = await resp.json();
                 if (resp.ok) {
