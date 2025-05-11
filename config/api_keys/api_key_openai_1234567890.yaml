@@ -1,10 +1,3 @@
-id: openai-service
-owner: AI Team
-provider_permissions:
-  - openai
-endpoint_permissions:
-  - /v1/chat/completions
-  - /v1/embeddings
 claims:
   static:
     models:

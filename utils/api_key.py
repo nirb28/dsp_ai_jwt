@@ -73,16 +73,8 @@ def get_additional_claims(api_key: str = None, user_context: Dict[str, Any] = No
             key_data.get('id', '')
         )
         
-        # Merge all claims
+        # Use only the static and dynamic claims, no metadata
         additional_claims = {**static_claims, **dynamic_claims}
-        
-        # Include API key metadata that might be useful
-        additional_claims.update({
-            "api_key_id": key_data.get('id', ''),
-            "api_key_owner": key_data.get('owner', ''),
-            "provider_permissions": key_data.get('provider_permissions', []),
-            "endpoint_permissions": key_data.get('endpoint_permissions', [])
-        })
         
         return additional_claims
         

@@ -1,9 +1,3 @@
-id: groq-service
-owner: ML Team
-provider_permissions:
-  - groq
-endpoint_permissions:
-  - /v1/chat/completions
 claims:
   static:
     models:

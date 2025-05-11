@@ -6,6 +6,20 @@
     <title>DSPAI JWT Auth Portal</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css">
     <style>
+        /* JSON viewer styles */
+        .json-tree {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f7fa;
@@ -37,6 +51,15 @@
             border: 1px solid #d0d7de;
             border-radius: 5px;
             font-size: 1em;
+        }
+        textarea {
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: 18px;
+            border: 1px solid #d0d7de;
+            border-radius: 5px;
+            font-size: 1em;
+            height: 100px;
         }
         button {
             width: 100%;
@@ -558,6 +581,15 @@
                     
                     // Auto-fill refresh token field for convenience
                     document.getElementById('refresh_token').value = data.refresh_token;
+                    
+                    // Auto-fill the decode section with the access token
+                    document.getElementById('jwt_token').value = data.access_token;
+                    
+                    // If a custom secret was used, also copy it to the decode section
+                    const tokenSecret = document.getElementById('token_secret').value.trim();
+                    if (tokenSecret) {
+                        document.getElementById('jwt_secret').value = tokenSecret;
+                    }
                 } else {
                     document.getElementById('tokenError').textContent = data.error || 'Login failed';
                     document.getElementById('tokenError').style.display = 'block';
@@ -585,8 +617,11 @@
                 });
                 const data = await resp.json();
                 if (resp.ok) {
-                    document.getElementById('decodeResult').textContent = JSON.stringify(data, null, 2);
-                    document.getElementById('decodeResult').style.display = 'block';
+                    // Format and display JSON with syntax highlighting
+                    const formattedJson = formatJsonWithHighlighting(data);
+                    const resultElement = document.getElementById('decodeResult');
+                    resultElement.innerHTML = formattedJson;
+                    resultElement.style.display = 'block';
                 } else {
                     document.getElementById('decodeError').textContent = data.error || 'Decode failed';
                     document.getElementById('decodeError').style.display = 'block';
@@ -1040,6 +1075,19 @@
                 document.getElementById('modalError').style.display = 'block';
             }
         };
+        
+        // Format JSON as a simple readable tree
+        function formatJsonWithHighlighting(obj) {
+            // Simply use JSON.stringify with proper indentation
+            const json = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+            
+            // Just escape HTML entities and wrap in a pre tag with styling
+            const escapedJson = json.replace(/&/g, '&amp;')
+                               .replace(/</g, '&lt;')
+                               .replace(/>/g, '&gt;');
+            
+            return '<div class="json-tree">' + escapedJson + '</div>';
+        }
         
         // Close modal when clicking outside
         window.onclick = function(event) {
