@@ -1,0 +1,46 @@
+# Example API key config with formula-based dynamic claims
+claims:
+  static:
+    models:
+      - gpt-3.5-turbo
+      - gpt-4
+      - llama3-70b
+    tier: premium
+    rate_limit: 120
+    exp_hours: 12
+  dynamic:
+    # Formula-based computed claims
+    computed_claims:
+      type: formula
+      formulas:
+        # Time-based rate limiting
+        requests_per_minute: "rate_limit / 60"
+        # Conditional token length based on tier
+        max_tokens_allowed: "tier == 'enterprise' ? 8192 : (tier == 'premium' ? 4096 : 2048)"
+        # Token expiry calculation
+        token_exp_seconds: "exp_hours * 3600"
+        # Model authorization
+        is_allowed_model: "requested_model in models"
+        # Rate limit adjustments
+        effective_rate_limit: "tier == 'premium' ? rate_limit * 1.5 : rate_limit"
+        # Compound conditions for authorization logic
+        needs_enhanced_auth: "tier == 'enterprise' && requested_operation in ['delete', 'admin']"
+
+# Metadata section with test scenarios
+metadata:
+  test_scenarios:
+    model_permissions:
+      allowed_models:
+        - model: "gpt-4"
+          expected_result: true
+        - model: "gpt-5"
+          expected_result: false
+      operations:
+        - operation: "query"
+          requires_enhanced_auth: false
+        - operation: "admin"
+          requires_enhanced_auth: true
+    rate_limits:
+      standard_context:
+        expected_rpm: 2
+        expected_token_limit: 4096
