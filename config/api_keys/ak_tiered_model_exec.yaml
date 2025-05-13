@@ -23,6 +23,13 @@ claims:
       args:
         team_id: "{team_id}"
         api_key_id: "{api_key_id}"
+    user_category:
+      type: function
+      module: claims.group_category
+      function: get_user_category
+      args:
+        user_groups: "{groups}"
+        lookup_mode: "TIERED_MATCH"
 
 # Metadata section - data not included in JWT tokens but used for function calls and API requests
 metadata:
@@ -37,6 +44,17 @@ metadata:
       can_create_api_keys: false
       can_view_billing: false
       max_models_per_request: 4000
+  categories:
+    gold:
+      groups: ["administrators", "powerusers"]
+      tier: 3
+      other: "some other data"
+    silver:
+      groups: ["users", "contributors"]
+      tier: 2
+    bronze:
+      groups: ["guests"]
+      tier: 1      
   context:
     organization_id: "org-12345"
     deployment_region: "us-east-1"

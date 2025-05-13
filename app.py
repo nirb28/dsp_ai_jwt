@@ -128,6 +128,7 @@ def login():
         user_context = {
             "user_id": username,
             "team_id": get_team_id_from_user(username, user_data),
+            "groups": user_data.get("groups", []),  # Ensure groups is included for dynamic claims
             # Additional context that might be needed by dynamic claims
             "api_key_id": api_key  # Use the API key itself as an ID if needed
         }
