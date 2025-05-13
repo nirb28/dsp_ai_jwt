@@ -145,11 +145,13 @@ def get_additional_claims(api_key: str = None, user_context: Dict[str, Any] = No
         static_claims = key_data.get('claims', {}).get('static', {})
         
         # Process dynamic claims
+        metadata = key_data.get('metadata', {})
         dynamic_claims = process_dynamic_claims(
             key_data.get('claims', {}).get('dynamic', {}),
             user_context,
             api_key or "base_api_key",  # Use base_api_key as the key name if no specific key
-            key_data.get('id', '')
+            key_data.get('id', ''),
+            metadata
         )
         
         # Use only the static and dynamic claims, no metadata
@@ -165,7 +167,8 @@ def process_dynamic_claims(
     dynamic_claims_config: Dict[str, Any],
     user_context: Dict[str, Any],
     api_key: str,
-    api_key_id: str
+    api_key_id: str,
+    metadata: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     logger.info(f"Processing dynamic claims with user_context={user_context}, api_key={api_key}, api_key_id={api_key_id}")
     """
@@ -192,8 +195,7 @@ def process_dynamic_claims(
             claim_type = claim_config.get('type', '')
             
             if claim_type == 'function':
-                # Execute a Python function to get the claim value
-                claim_value = execute_function_claim(claim_config, user_context, api_key, api_key_id)
+                claim_value = execute_function_claim(claim_config, user_context, api_key, api_key_id, metadata)
                 if claim_value:
                     result[claim_name] = claim_value
                     
@@ -222,7 +224,8 @@ def execute_function_claim(
     claim_config: Dict[str, Any],
     user_context: Dict[str, Any],
     api_key: str,
-    api_key_id: str
+    api_key_id: str,
+    metadata: Dict[str, Any] = None
 ) -> Optional[Any]:
     logger.info(f"Executing function claim with config: {claim_config}")
     """
@@ -271,8 +274,11 @@ def execute_function_claim(
             else:
                 processed_args[arg_name] = arg_value
         
-        # Call the function with the processed arguments
-        return func(**processed_args)
+        # Call the function with the processed arguments and metadata if available
+        if metadata is not None:
+            return func(**processed_args, metadata=metadata)
+        else:
+            return func(**processed_args)
         
     except Exception as e:
         logger.error(f"Error executing function claim: {str(e)}")

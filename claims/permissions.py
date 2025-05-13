@@ -18,13 +18,13 @@ def get_team_permissions(team_id: str, api_key_id: str, **kwargs) -> Dict[str, A
         Dict containing the team permissions
     """
     logger.info(f"Getting permissions for team: {team_id} with API key: {api_key_id}")
+    metadata = kwargs.get('metadata', {}) if 'metadata' in kwargs else {}
     
-    # In a real implementation, this would query a database or external service
-    # For demonstration, we'll return a mock response
-    
-    # Mock implementation
-    # In production, you would fetch this from a database or external service
-    team_permissions = {
+    # Prefer team_permissions from metadata if present
+    team_permissions = metadata.get('team_permissions')
+    if team_permissions is None:
+        # Fallback to hardcoded mock
+        team_permissions = {
         "admin-team": {
             "can_manage_users": True,
             "can_create_api_keys": True,

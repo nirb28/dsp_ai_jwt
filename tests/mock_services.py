@@ -12,7 +12,7 @@ mock_app = Flask(__name__)
 # In-memory store for mock data
 mock_data = {
     "budgets": {
-        "test-openai": {"remaining_budget": 1000},
+        "ak_tiered_model_exec": {"remaining_budget": 1000},
         "test-groq": {"remaining_budget": 500},
         "test-all": {"remaining_budget": 2000},
     }

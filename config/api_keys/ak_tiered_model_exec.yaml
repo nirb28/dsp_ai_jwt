@@ -1,4 +1,5 @@
 # Claims section - data that will be included in JWT tokens
+api_key: ak_tiered_model_exec
 claims:
   static:
     models:
@@ -21,9 +22,21 @@ claims:
       function: get_team_permissions
       args:
         team_id: "{team_id}"
+        api_key_id: "{api_key_id}"
 
 # Metadata section - data not included in JWT tokens but used for function calls and API requests
 metadata:
+  team_permissions:
+    admin-team:
+      can_manage_users: true
+      can_create_api_keys: true
+      can_view_billing: true
+      max_models_per_request: 1000
+    ai-team:
+      can_manage_users: false
+      can_create_api_keys: false
+      can_view_billing: false
+      max_models_per_request: 4000
   context:
     organization_id: "org-12345"
     deployment_region: "us-east-1"
