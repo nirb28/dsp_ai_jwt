@@ -122,10 +122,20 @@ def login():
         "team_id": get_team_id_from_user(username, user_data)
     }
 
-    # Get additional claims based on API key if provided, otherwise use base API key
-    # The get_additional_claims function now handles using the base API key when api_key is None
-    additional_claims = get_additional_claims(api_key, user_context)
-    
+    # If an API key was provided, get additional claims to include in the token
+    if api_key:
+        # Create a proper user context for dynamic claims
+        user_context = {
+            "user_id": username,
+            "team_id": get_team_id_from_user(username, user_data),
+            # Additional context that might be needed by dynamic claims
+            "api_key_id": api_key  # Use the API key itself as an ID if needed
+        }
+        logger.info(f"Processing API key with user_context: {user_context}")
+        api_key_claims = get_additional_claims(api_key, user_context)
+    else:
+        api_key_claims = get_additional_claims(None, user_context)
+
     # Log which API key is being used
     if api_key:
         logger.info(f"Using provided API key: {api_key}")
@@ -133,7 +143,7 @@ def login():
         logger.info("No API key provided, using base API key")
 
     # Merge user data with additional claims
-    claims = {**user_data, **additional_claims}
+    claims = {**user_data, **api_key_claims}
     
     # Get expiration time from API key configuration if available
     expires_delta = app.config["JWT_ACCESS_TOKEN_EXPIRES"]  # Default

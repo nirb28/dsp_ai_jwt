@@ -11,7 +11,7 @@ claims:
   dynamic:
     budget_status:
       type: api
-      url: "http://billing-service/api/budget/{api_key_id}"
+      url: "http://127.0.0.1:5001/api/budget/{api_key_id}"
       method: GET
       headers:
         X-Internal-Auth: "{internal_token}"

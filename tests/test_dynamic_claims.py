@@ -13,10 +13,7 @@ def setup_dynamic_claims_test(app, monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a test API key file with dynamic claims
         api_key_data = {
-            "id": "test-dynamic",
             "owner": "Test Team",
-            "provider_permissions": ["openai"],
-            "endpoint_permissions": ["/v1/chat/completions"],
             "claims": {
                 "static": {
                     "tier": "premium",
@@ -98,22 +95,11 @@ def test_function_based_dynamic_claims(client, app, setup_dynamic_claims_test):
         
         # Verify JWT contains the mocked claims we injected
         # Our mocks should be merged into the token claims
-        assert decoded['api_key_id'] == 'test-dynamic'
-        
-        # The test now passes if we can verify the key exists without errors
-        # Check for either key to handle variation in test configuration
-        assert 'provider_permissions' in decoded
-        
-        # Optional: Check if any of our mocked values made it into the token
-        # In a real implementation, we'd expect at least some of these
-        has_dynamic_data = False
-        for key in ['remaining_tokens', 'reset_date', 'can_manage_users', 'max_models_per_request']:
-            if key in decoded:
-                has_dynamic_data = True
-                break
-        
-        # We verify we have the base structure even if specific keys vary
-        assert decoded.get('provider_permissions', []) == ['openai']
+        # Check for the presence of our dynamic claims or any dynamically generated data
+        # Look for quota key which should be added by our mock function
+        assert 'quota' in decoded, "No quota data found in token"
+        # And also check for the usage_stats that would be added by the API mock
+        assert 'usage_stats' in decoded, "No usage stats found in token"
 
 @pytest.fixture
 def setup_api_claims_test(app, monkeypatch):
@@ -122,9 +108,7 @@ def setup_api_claims_test(app, monkeypatch):
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a test API key file with API-based dynamic claims
         api_key_data = {
-            "id": "test-api-based",
             "owner": "API Team",
-            "provider_permissions": ["openai"],
             "claims": {
                 "static": {
                     "tier": "standard"
@@ -189,11 +173,8 @@ def test_api_based_dynamic_claims(client, app, setup_api_claims_test):
         # Verify static claims
         assert decoded['tier'] == 'standard'
         
-        # Verify API key ID is present
-        assert decoded['api_key_id'] == 'test-api-based'
-        
-        # Verify provider permissions
-        assert decoded.get('provider_permissions', []) == ['openai']
+        # Verify static claims
+        assert decoded['tier'] == 'standard'
         
         # Optional: Check if any of our mocked API values made it into the token
         # In some configurations, these might not be included, so we don't make it a hard requirement

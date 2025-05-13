@@ -73,8 +73,11 @@ def test_login_with_api_key(client, app):
     assert decoded['type'] == 'access'
     
     # We're using an actual API key that exists in the config
-    assert 'provider_permissions' in decoded
-    assert 'openai' in decoded['provider_permissions']
+    # Check for claims that should be in the token from the API key
+    assert 'tier' in decoded
+    assert decoded['tier'] in ['premium', 'enterprise']
+    assert 'models' in decoded
+    assert 'gpt-3.5-turbo' in decoded['models']
 
 def test_protected_route(client, auth_token):
     """Test protected route requires valid JWT."""

@@ -167,6 +167,7 @@ def process_dynamic_claims(
     api_key: str,
     api_key_id: str
 ) -> Dict[str, Any]:
+    logger.info(f"Processing dynamic claims with user_context={user_context}, api_key={api_key}, api_key_id={api_key_id}")
     """
     Process dynamic claims configuration and execute the specified functions or API calls
     
@@ -184,7 +185,9 @@ def process_dynamic_claims(
     
     result = {}
     
+    logger.info(f"Dynamic claims config: {dynamic_claims_config}")
     for claim_name, claim_config in dynamic_claims_config.items():
+        logger.info(f"Processing claim: {claim_name} with config: {claim_config}")
         try:
             claim_type = claim_config.get('type', '')
             
@@ -212,6 +215,7 @@ def process_dynamic_claims(
         except Exception as e:
             logger.error(f"Error processing dynamic claim '{claim_name}': {str(e)}")
     
+    logger.info(f"Final dynamic claims result: {result}")
     return result
 
 def execute_function_claim(
@@ -220,6 +224,7 @@ def execute_function_claim(
     api_key: str,
     api_key_id: str
 ) -> Optional[Any]:
+    logger.info(f"Executing function claim with config: {claim_config}")
     """
     Execute a function-based dynamic claim
     
@@ -523,7 +528,6 @@ def execute_formula_claims(
                 logger.error(f"Error evaluating formula for claim '{claim_name}': {str(e)}")
         
         return result
-        
     except Exception as e:
         logger.error(f"Error processing formula claims: {str(e)}")
         return {}

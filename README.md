@@ -273,3 +273,9 @@ curl -X POST http://localhost:5000/decode -H "Content-Type: application/json" -d
 
 Access a protected endpoint:
 curl -X GET http://localhost:5000/protected -H "Authorization: Bearer your-jwt-token-here"
+
+curl -X POST http://192.168.1.25:5000/token -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"password\",\"api_key\":\"ak_tiered_model_exec\"}"
+
+TOKEN=$(curl -s -X POST http://192.168.1.25:5000/token -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"password\",\"api_key\":\"ak_tiered_model_exec\"}" | jq -r '.access_token') && curl -X POST http://192.168.1.25:5000/decode -H "Content-Type: application/json" -d "{\"token\":\"$TOKEN\"}"
+
+tk
