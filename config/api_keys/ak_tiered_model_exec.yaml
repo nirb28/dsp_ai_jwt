@@ -1,7 +1,7 @@
 # Claims section - data that will be included in JWT tokens
-api_key: ak_tiered_model_exec
 claims:
   static:
+    key: ak_tiered_model_exec
     models:
       - gpt-3.5-turbo
       - gpt-4
@@ -46,15 +46,17 @@ metadata:
       max_models_per_request: 4000
   categories:
     gold:
-      groups: ["administrators", "powerusers"]
+      groups: ["grp_tier1", "powerusers"]
       tier: 3
-      other: "some other data"
+      destURL: "debug/request-info?user_category=gold"
     silver:
-      groups: ["users", "contributors"]
+      groups: ["grp_tier2", "contributors"]
       tier: 2
+      destURL: "debug/request-info?user_category=silver"
     bronze:
-      groups: ["guests"]
+      groups: ["grp_tier3"]
       tier: 1      
+      destURL: "debug/request-info?user_category=bronze"
   context:
     organization_id: "org-12345"
     deployment_region: "us-east-1"

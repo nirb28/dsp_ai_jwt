@@ -1,10 +1,9 @@
-# Sample users file for file-based authentication
-# In production, use a secure password hashing method like bcrypt
-# Current passwords are SHA-256 hashed
-# Example entry for user 'admin' with password 'password'
-
+# Sample users file for file-based authentication 
+# In production, use a secure password hashing method like bcrypt 
+# Current passwords are SHA-256 hashed 
+# Example entry for user 'admin' with password 'password' 
 admin:
-  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8  # SHA-256 for 'password'
+  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
   name: Administrator
   email: admin@example.com
   groups:
@@ -12,21 +11,30 @@ admin:
   roles:
     - admin
     - user
-
-user1:
-  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8  # SHA-256 for 'password'
+hk:
+  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
   name: Regular User
   email: user1@example.com
   groups:
     - users
+    - grp_tier1
   roles:
     - user
-
-testuser:
-  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8  # SHA-256 for 'password'
+ps:
+  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
   name: Regular User
   email: user1@example.com
   groups:
     - users
+    - grp_tier2
+  roles:
+    - user
+ds:
+  password: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+  name: Regular User
+  email: user1@example.com
+  groups:
+    - users
+    - grp_tier3
   roles:
     - user
