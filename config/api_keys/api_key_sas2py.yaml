@@ -1,0 +1,21 @@
+id: sas2py-api-key
+owner: SAS2PY Team
+description: API key for SAS to Python conversion project with APISIX integration
+provider_permissions:
+  - groq
+  - openai
+endpoint_permissions:
+  - /openai/v1/chat/completions
+  - /v1/chat/completions
+claims:
+  static:
+    # APISIX jwt-auth plugin expects a 'key' claim that matches the consumer key
+    key: sas2py-key
+    tier: standard
+    models:
+      - llama-3.1-70b-versatile
+      - llama-3.1-8b-instant
+    rate_limit: 100
+    project: sas2py
+    environment: development
+exp_hours: 1
