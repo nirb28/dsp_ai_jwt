@@ -103,7 +103,7 @@ login_endpoint = {
     "post": {
         "tags": ["auth"],
         "summary": "Generate JWT tokens based on user login",
-        "description": "Authenticate a user with username and password, optionally using an API key, and return JWT tokens",
+        "description": "Authenticate a user with username and password, optionally using an API key or inline API key configuration, and return JWT tokens",
         "requestBody": {
             "required": True,
             "content": {
@@ -112,9 +112,68 @@ login_endpoint = {
                         "type": "object",
                         "required": ["username", "password"],
                         "properties": {
-                            "username": {"type": "string"},
-                            "password": {"type": "string"},
-                            "api_key": {"type": "string"}
+                            "username": {"type": "string", "description": "Username for authentication"},
+                            "password": {"type": "string", "description": "Password for authentication"},
+                            "api_key": {"type": "string", "description": "API key string to look up configuration from file"},
+                            "api_key_config": {
+                                "type": "object",
+                                "description": "Inline API key configuration (takes precedence over api_key)",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "owner": {"type": "string"},
+                                    "claims": {
+                                        "type": "object",
+                                        "properties": {
+                                            "static": {
+                                                "type": "object",
+                                                "description": "Static claims to include in JWT",
+                                                "additionalProperties": True
+                                            },
+                                            "dynamic": {
+                                                "type": "object",
+                                                "description": "Dynamic claims configuration",
+                                                "additionalProperties": True
+                                            }
+                                        }
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "description": "Metadata not included in JWT but used for function calls",
+                                        "additionalProperties": True
+                                    }
+                                }
+                            },
+                            "secret": {"type": "string", "description": "Custom secret for token generation"}
+                        }
+                    },
+                    "examples": {
+                        "with_api_key": {
+                            "summary": "Login with API key reference",
+                            "value": {
+                                "username": "user1",
+                                "password": "password123",
+                                "api_key": "api_key_sas2py"
+                            }
+                        },
+                        "with_inline_config": {
+                            "summary": "Login with inline API key config",
+                            "value": {
+                                "username": "user1",
+                                "password": "password123",
+                                "api_key_config": {
+                                    "id": "custom-inline-key",
+                                    "owner": "Custom User",
+                                    "claims": {
+                                        "static": {
+                                            "key": "custom-key",
+                                            "tier": "premium",
+                                            "models": ["gpt-4", "gpt-3.5-turbo"],
+                                            "rate_limit": 100,
+                                            "exp_hours": 2
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

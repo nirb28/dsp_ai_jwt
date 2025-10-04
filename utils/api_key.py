@@ -92,13 +92,14 @@ def get_api_key_data(api_key: str = None, user_context: Dict[str, Any] = None) -
         "metadata": metadata
     }
 
-def get_additional_claims(api_key: str = None, user_context: Dict[str, Any] = None) -> Dict:
+def get_additional_claims(api_key: str = None, user_context: Dict[str, Any] = None, api_key_config: Dict[str, Any] = None) -> Dict:
     """
-    Get additional claims based on the provided API key
+    Get additional claims based on the provided API key or inline API key configuration
     
     Args:
         api_key: The API key to look up, if None or empty, will use the base API key
         user_context: Optional context about the user (e.g., user_id, team_id)
+        api_key_config: Optional inline API key configuration dict (takes precedence over api_key)
         
     Returns:
         Dict with additional claims to include in the JWT token
@@ -106,40 +107,45 @@ def get_additional_claims(api_key: str = None, user_context: Dict[str, Any] = No
     try:
         if user_context is None:
             user_context = {}
+        
+        # If api_key_config is provided inline, use it directly
+        if api_key_config:
+            logger.info("Using inline API key configuration")
+            key_data = api_key_config
+        else:
+            # Get API keys directory path from environment variable or use default
+            api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
             
-        # Get API keys directory path from environment variable or use default
-        api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
-        
-        # Check if directory exists
-        if not os.path.exists(api_keys_dir):
-            logger.error(f"API keys directory not found: {api_keys_dir}")
-            return {}
-        
-        # Determine which API key file to use
-        api_key_file = None
-        
-        # If API key is provided, try to find its config file
-        if api_key:
-            specific_key_file = os.path.join(api_keys_dir, f"{api_key}.yaml")
-            if os.path.exists(specific_key_file):
-                api_key_file = specific_key_file
-            else:
-                logger.warning(f"Config file for API key not found: {api_key}")
-                logger.info("Falling back to base API key")
-        
-        # If no API key provided or specific key not found, use the base API key
-        if not api_key_file:
-            base_key_file = os.path.join(api_keys_dir, BASE_API_KEY_FILE)
-            if os.path.exists(base_key_file):
-                api_key_file = base_key_file
-                logger.info("Using base API key")
-            else:
-                logger.warning(f"Base API key file not found: {BASE_API_KEY_FILE}")
+            # Check if directory exists
+            if not os.path.exists(api_keys_dir):
+                logger.error(f"API keys directory not found: {api_keys_dir}")
                 return {}
-        
-        # Load API key config from file
-        with open(api_key_file, 'r') as f:
-            key_data = yaml.safe_load(f)
+            
+            # Determine which API key file to use
+            api_key_file = None
+            
+            # If API key is provided, try to find its config file
+            if api_key:
+                specific_key_file = os.path.join(api_keys_dir, f"{api_key}.yaml")
+                if os.path.exists(specific_key_file):
+                    api_key_file = specific_key_file
+                else:
+                    logger.warning(f"Config file for API key not found: {api_key}")
+                    logger.info("Falling back to base API key")
+            
+            # If no API key provided or specific key not found, use the base API key
+            if not api_key_file:
+                base_key_file = os.path.join(api_keys_dir, BASE_API_KEY_FILE)
+                if os.path.exists(base_key_file):
+                    api_key_file = base_key_file
+                    logger.info("Using base API key")
+                else:
+                    logger.warning(f"Base API key file not found: {BASE_API_KEY_FILE}")
+                    return {}
+            
+            # Load API key config from file
+            with open(api_key_file, 'r') as f:
+                key_data = yaml.safe_load(f)
         
         # Extract static claims
         static_claims = key_data.get('claims', {}).get('static', {})

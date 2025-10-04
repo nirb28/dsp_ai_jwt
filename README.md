@@ -6,11 +6,14 @@ A Flask-based JWT token service designed for integration with APISIX gateway. Th
 
 - **Multiple Authentication Methods**: Support for LDAP (Active Directory) and file-based authentication
 - **Configurable JWT Tokens**: JWT tokens are signed with a configurable key that can be shared with the APISIX gateway
-- **Individual API Key Configuration**: Each API key has its own configuration file
+- **Flexible API Key Configuration**: 
+  - File-based: Each API key has its own configuration file
+  - **NEW**: Inline payload: Pass API key configuration directly in the request
 - **Dynamic Claims**: Support for generating claims dynamically via:
   - Function calls (Python functions)
   - API calls (External HTTP services)
 - **Token Decoding**: Simple mechanism to decode and verify JWT tokens
+- **Control Tower Integration**: Seamlessly use manifest configurations from DSP AI Control Tower
 
 ## Setup
 
@@ -155,6 +158,8 @@ Available placeholders:
 
 ### Generate JWT Token
 
+#### Option 1: With API Key Reference (File-based)
+
 ```
 POST /token
 Content-Type: application/json
@@ -166,6 +171,33 @@ Content-Type: application/json
 }
 ```
 
+#### Option 2: With Inline API Key Configuration (NEW)
+
+```
+POST /token
+Content-Type: application/json
+
+{
+  "username": "user",
+  "password": "password",
+  "api_key_config": {
+    "id": "custom-key-id",
+    "owner": "Team Name",
+    "claims": {
+      "static": {
+        "key": "consumer-key",
+        "tier": "premium",
+        "models": ["gpt-4", "gpt-3.5-turbo"],
+        "rate_limit": 100,
+        "exp_hours": 2
+      }
+    }
+  }
+}
+```
+
+**Note**: If both `api_key` and `api_key_config` are provided, `api_key_config` takes precedence.
+
 **Response**:
 ```json
 {
@@ -173,6 +205,8 @@ Content-Type: application/json
   "refresh_token": "eyJ0eXAi..."
 }
 ```
+
+For detailed documentation on the inline configuration feature, see [API_KEY_CONFIG_PAYLOAD.md](API_KEY_CONFIG_PAYLOAD.md).
 
 ### Refresh JWT Token
 
