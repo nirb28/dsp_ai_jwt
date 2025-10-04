@@ -80,21 +80,30 @@ def get_jwt_token_with_manifest_config(
 
 def example_sas2py_project():
     """
-    Example: Get JWT token for SAS2PY project using Control Tower manifest
+    Example: Get JWT token for SAS2PY project using Front Door endpoint
     """
     print("=" * 80)
-    print("Example: SAS2PY Project with Control Tower Integration")
+    print("Example: SAS2PY Project via Front Door")
     print("=" * 80)
     
     try:
-        # Get token using manifest configuration
-        token_data = get_jwt_token_with_manifest_config(
-            username="user1",
-            password="password123",
-            project_id="sas2py"
+        # Use Front Door endpoint: /{project_id}/{jwt_module_name}/token
+        response = requests.post(
+            f"{FRONT_DOOR_URL}/sas2py/simple-auth/token",
+            json={
+                "username": "admin",
+                "password": "password"
+            }
         )
         
-        print("\n✓ Successfully obtained JWT token")
+        if response.status_code != 200:
+            print(f"✗ Failed to get token: {response.status_code}")
+            print(f"Response: {response.text}")
+            return None
+        
+        token_data = response.json()
+        
+        print("\n✓ Successfully obtained JWT token via Front Door")
         print(f"Access Token: {token_data['access_token'][:50]}...")
         
         # Decode token to see claims
