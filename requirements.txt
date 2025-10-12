@@ -9,4 +9,5 @@ requests==2.31.0
 flask-swagger-ui==4.11.1
 apispec==6.3.0
 marshmallow
-gunicorn==21.2.0  # HTTPS support via WSGI server
+gunicorn # HTTPS support via WSGI server
+jwcrypto # JWE (JSON Web Encryption) support for symmetric encryption

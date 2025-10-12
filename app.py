@@ -28,6 +28,11 @@ load_dotenv()
 from auth.file_auth import authenticate_file
 from auth.ldap_auth import authenticate_ldap, LDAP_AVAILABLE
 from utils.api_key import get_additional_claims, BASE_API_KEY_FILE
+from utils.jwe_handler import (
+    encrypt_jwt_token, decrypt_jwe_token,
+    encrypt_payload_to_jwe, decrypt_jwe_to_payload,
+    JWEHandler
+)
 
 # Ensure the templates directory exists
 templates_dir = pathlib.Path(__file__).parent / 'templates'
@@ -213,6 +218,51 @@ def login():
         )
         refresh_token = create_refresh_token(identity=username, additional_claims=claims)
         
+        # Check if JWE encryption is enabled for this API key
+        jwe_config = get_jwe_config_from_api_key(api_key, api_key_config)
+        
+        if jwe_config:
+            logger.info("JWE encryption enabled, encrypting tokens")
+            try:
+                # Get encryption parameters from config
+                encryption_key = jwe_config.get('encryption_key')
+                # Resolve environment variable if needed
+                if encryption_key and encryption_key.startswith('${') and encryption_key.endswith('}'):
+                    env_var = encryption_key[2:-1]
+                    encryption_key = os.getenv(env_var)
+                    if not encryption_key:
+                        logger.error(f"JWE encryption key environment variable not set: {env_var}")
+                        return jsonify({"error": "JWE encryption key not configured"}), 500
+                
+                content_encryption = jwe_config.get('encryption', 'A256GCM')
+                compression = jwe_config.get('compression', None)
+                
+                # Encrypt both tokens
+                encrypted_access_token = encrypt_jwt_token(
+                    access_token,
+                    encryption_key,
+                    content_encryption,
+                    compression
+                )
+                encrypted_refresh_token = encrypt_jwt_token(
+                    refresh_token,
+                    encryption_key,
+                    content_encryption,
+                    compression
+                )
+                
+                return jsonify({
+                    "access_token": encrypted_access_token,
+                    "refresh_token": encrypted_refresh_token,
+                    "token_type": "JWE",
+                    "encryption": content_encryption,
+                    "note": "Tokens are JWE-encrypted. Use /decrypt-jwe endpoint to extract JWT."
+                }), 200
+                
+            except Exception as e:
+                logger.error(f"Error encrypting tokens with JWE: {str(e)}")
+                return jsonify({"error": f"JWE encryption failed: {str(e)}"}), 500
+        
         return jsonify(access_token=access_token, refresh_token=refresh_token), 200
 
 def get_team_id_from_user(username, user_data):
@@ -239,6 +289,43 @@ def get_team_id_from_user(username, user_data):
     
     # Default team
     return "general-users"
+
+def get_jwe_config_from_api_key(api_key: str = None, api_key_config: dict = None) -> dict:
+    """
+    Get JWE configuration from API key or inline configuration
+    
+    Args:
+        api_key: The API key to look up
+        api_key_config: Inline API key configuration
+        
+    Returns:
+        Dict with JWE configuration or empty dict if not configured
+    """
+    try:
+        # If api_key_config is provided inline, use it directly
+        if api_key_config:
+            jwe_config = api_key_config.get('jwe_config', {})
+            if jwe_config.get('enabled', False):
+                return jwe_config
+            return {}
+        
+        # Otherwise load from file
+        if api_key:
+            api_keys_dir = os.getenv("API_KEYS_DIR", "config/api_keys")
+            specific_key_file = os.path.join(api_keys_dir, f"{api_key}.yaml")
+            
+            if os.path.exists(specific_key_file):
+                with open(specific_key_file, 'r') as f:
+                    key_data = yaml.safe_load(f)
+                    jwe_config = key_data.get('jwe_config', {})
+                    if jwe_config.get('enabled', False):
+                        return jwe_config
+        
+        return {}
+        
+    except Exception as e:
+        logger.error(f"Error getting JWE config: {str(e)}")
+        return {}
 
 @app.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
@@ -606,6 +693,149 @@ def delete_api_key(api_key_string):
         logger.error(f"Error deleting API key: {str(e)}")
         return jsonify({"error": f"Failed to delete API key: {str(e)}"}), 500
 
+
+@app.route('/encrypt-jwe', methods=['POST'])
+def encrypt_jwe():
+    """
+    Encrypt a JWT token or payload using JWE (JSON Web Encryption)
+    
+    Request body:
+    {
+        "token": "jwt_token_string",  # Optional: JWT token to encrypt
+        "payload": {...},               # Optional: Payload dict to encrypt directly
+        "encryption_key": "base64_key", # Required: Symmetric encryption key
+        "encryption": "A256GCM",        # Optional: Encryption algorithm (default: A256GCM)
+        "compression": null             # Optional: Compression (null or "DEF")
+    }
+    """
+    if not request.is_json:
+        return jsonify({"error": "Missing JSON in request"}), 400
+    
+    data = request.json
+    token = data.get('token')
+    payload = data.get('payload')
+    encryption_key = data.get('encryption_key')
+    content_encryption = data.get('encryption', 'A256GCM')
+    compression = data.get('compression', None)
+    
+    if not encryption_key:
+        return jsonify({"error": "Missing encryption_key"}), 400
+    
+    if not token and not payload:
+        return jsonify({"error": "Either token or payload must be provided"}), 400
+    
+    try:
+        if token:
+            # Encrypt JWT token
+            encrypted = encrypt_jwt_token(
+                token,
+                encryption_key,
+                content_encryption,
+                compression
+            )
+        else:
+            # Encrypt payload directly
+            encrypted = encrypt_payload_to_jwe(
+                payload,
+                encryption_key,
+                content_encryption,
+                compression
+            )
+        
+        return jsonify({
+            "jwe_token": encrypted,
+            "encryption": content_encryption,
+            "compression": compression
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error encrypting with JWE: {str(e)}")
+        return jsonify({"error": f"Encryption failed: {str(e)}"}), 400
+
+@app.route('/decrypt-jwe', methods=['POST'])
+def decrypt_jwe():
+    """
+    Decrypt a JWE token to retrieve the JWT token or payload
+    
+    Request body:
+    {
+        "jwe_token": "encrypted_token_string",
+        "encryption_key": "base64_key",
+        "encryption": "A256GCM",         # Optional: Encryption algorithm (default: A256GCM)
+        "extract_jwt": true               # Optional: If true, extract JWT from payload
+    }
+    """
+    if not request.is_json:
+        return jsonify({"error": "Missing JSON in request"}), 400
+    
+    data = request.json
+    jwe_token = data.get('jwe_token')
+    encryption_key = data.get('encryption_key')
+    content_encryption = data.get('encryption', 'A256GCM')
+    extract_jwt = data.get('extract_jwt', True)
+    
+    if not jwe_token:
+        return jsonify({"error": "Missing jwe_token"}), 400
+    
+    if not encryption_key:
+        return jsonify({"error": "Missing encryption_key"}), 400
+    
+    try:
+        if extract_jwt:
+            # Decrypt to get JWT token
+            jwt_token = decrypt_jwe_token(
+                jwe_token,
+                encryption_key,
+                content_encryption
+            )
+            return jsonify({
+                "jwt_token": jwt_token,
+                "note": "Use /decode endpoint to decode the JWT token"
+            }), 200
+        else:
+            # Decrypt to get full payload
+            payload = decrypt_jwe_to_payload(
+                jwe_token,
+                encryption_key,
+                content_encryption
+            )
+            return jsonify({
+                "payload": payload
+            }), 200
+        
+    except Exception as e:
+        logger.error(f"Error decrypting JWE: {str(e)}")
+        return jsonify({"error": f"Decryption failed: {str(e)}"}), 400
+
+@app.route('/generate-jwe-key', methods=['POST'])
+def generate_jwe_key():
+    """
+    Generate a new symmetric encryption key for JWE
+    
+    Request body (optional):
+    {
+        "algorithm": "A256GCM",  # Optional: Encryption algorithm (default: A256GCM)
+        "format": "base64"       # Optional: Output format (base64 or hex, default: base64)
+    }
+    """
+    data = request.json if request.is_json else {}
+    algorithm = data.get('algorithm', 'A256GCM')
+    output_format = data.get('format', 'base64')
+    
+    try:
+        key = JWEHandler.generate_encryption_key(algorithm, output_format)
+        
+        return jsonify({
+            "encryption_key": key,
+            "algorithm": algorithm,
+            "format": output_format,
+            "key_size_bytes": JWEHandler.KEY_SIZES[algorithm],
+            "note": "Store this key securely! Add it to your environment variables."
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error generating JWE key: {str(e)}")
+        return jsonify({"error": f"Key generation failed: {str(e)}"}), 400
 
 @app.route('/debug/request-info', methods=['GET', 'POST'])
 def request_debug_info():

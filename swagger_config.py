@@ -15,7 +15,7 @@ spec = APISpec(
     openapi_version="3.0.2",
     plugins=[MarshmallowPlugin()],
     info={
-        "description": "API for JWT authentication and API key management",
+        "description": "API for JWT authentication, JWE encryption, and API key management. Supports symmetric encryption of JWT tokens using JWE (JSON Web Encryption) for enhanced security.",
         "contact": {"email": "support@dspai.com"}
     },
     servers=[
@@ -24,6 +24,7 @@ spec = APISpec(
     tags=[
         {"name": "auth", "description": "Authentication endpoints"},
         {"name": "token", "description": "Token management endpoints"},
+        {"name": "jwe", "description": "JWE (JSON Web Encryption) endpoints"},
         {"name": "api-keys", "description": "API key management endpoints"},
     ],
 )
@@ -534,6 +535,239 @@ delete_api_key_endpoint = {
     }
 }
 
+# Define the generate JWE key endpoint
+generate_jwe_key_endpoint = {
+    "post": {
+        "tags": ["jwe"],
+        "summary": "Generate JWE encryption key",
+        "description": "Generate a new symmetric encryption key for JWE (JSON Web Encryption)",
+        "requestBody": {
+            "required": False,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "algorithm": {
+                                "type": "string",
+                                "enum": ["A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"],
+                                "default": "A256GCM",
+                                "description": "Encryption algorithm"
+                            },
+                            "format": {
+                                "type": "string",
+                                "enum": ["base64", "hex"],
+                                "default": "base64",
+                                "description": "Output format"
+                            }
+                        }
+                    },
+                    "examples": {
+                        "default": {
+                            "summary": "Generate A256GCM key",
+                            "value": {
+                                "algorithm": "A256GCM",
+                                "format": "base64"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "Encryption key generated successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "encryption_key": {"type": "string", "description": "Generated encryption key"},
+                                "algorithm": {"type": "string", "description": "Encryption algorithm"},
+                                "format": {"type": "string", "description": "Key format"},
+                                "key_size_bytes": {"type": "integer", "description": "Key size in bytes"},
+                                "note": {"type": "string", "description": "Usage note"}
+                            }
+                        }
+                    }
+                }
+            },
+            "400": {"description": "Invalid algorithm or format"}
+        }
+    }
+}
+
+# Define the encrypt JWE endpoint
+encrypt_jwe_endpoint = {
+    "post": {
+        "tags": ["jwe"],
+        "summary": "Encrypt JWT token or payload with JWE",
+        "description": "Encrypt a JWT token or custom payload using JWE (JSON Web Encryption) with symmetric encryption",
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["encryption_key"],
+                        "properties": {
+                            "token": {
+                                "type": "string",
+                                "description": "JWT token to encrypt (provide either token or payload)"
+                            },
+                            "payload": {
+                                "type": "object",
+                                "description": "Custom payload to encrypt (provide either token or payload)"
+                            },
+                            "encryption_key": {
+                                "type": "string",
+                                "description": "Base64-encoded symmetric encryption key"
+                            },
+                            "encryption": {
+                                "type": "string",
+                                "enum": ["A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"],
+                                "default": "A256GCM",
+                                "description": "Content encryption algorithm"
+                            },
+                            "compression": {
+                                "type": "string",
+                                "enum": [None, "DEF"],
+                                "nullable": True,
+                                "description": "Compression algorithm (null or DEF for deflate)"
+                            }
+                        }
+                    },
+                    "examples": {
+                        "encrypt_token": {
+                            "summary": "Encrypt JWT token",
+                            "value": {
+                                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                                "encryption_key": "your_base64_key",
+                                "encryption": "A256GCM"
+                            }
+                        },
+                        "encrypt_payload": {
+                            "summary": "Encrypt custom payload",
+                            "value": {
+                                "payload": {"user": "john", "role": "admin"},
+                                "encryption_key": "your_base64_key",
+                                "encryption": "A256GCM",
+                                "compression": "DEF"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "Successfully encrypted",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "jwe_token": {"type": "string", "description": "JWE encrypted token"},
+                                "encryption": {"type": "string", "description": "Encryption algorithm used"},
+                                "compression": {"type": "string", "nullable": True, "description": "Compression used"}
+                            }
+                        }
+                    }
+                }
+            },
+            "400": {"description": "Invalid request or encryption failed"}
+        }
+    }
+}
+
+# Define the decrypt JWE endpoint
+decrypt_jwe_endpoint = {
+    "post": {
+        "tags": ["jwe"],
+        "summary": "Decrypt JWE token",
+        "description": "Decrypt a JWE token to retrieve the JWT token or original payload",
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["jwe_token", "encryption_key"],
+                        "properties": {
+                            "jwe_token": {
+                                "type": "string",
+                                "description": "JWE encrypted token"
+                            },
+                            "encryption_key": {
+                                "type": "string",
+                                "description": "Base64-encoded symmetric encryption key"
+                            },
+                            "encryption": {
+                                "type": "string",
+                                "enum": ["A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"],
+                                "default": "A256GCM",
+                                "description": "Content encryption algorithm"
+                            },
+                            "extract_jwt": {
+                                "type": "boolean",
+                                "default": True,
+                                "description": "If true, extract JWT token; if false, return full payload"
+                            }
+                        }
+                    },
+                    "examples": {
+                        "decrypt_jwt": {
+                            "summary": "Decrypt to JWT token",
+                            "value": {
+                                "jwe_token": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0...",
+                                "encryption_key": "your_base64_key",
+                                "encryption": "A256GCM",
+                                "extract_jwt": True
+                            }
+                        },
+                        "decrypt_payload": {
+                            "summary": "Decrypt to full payload",
+                            "value": {
+                                "jwe_token": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0...",
+                                "encryption_key": "your_base64_key",
+                                "encryption": "A256GCM",
+                                "extract_jwt": False
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "Successfully decrypted",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "jwt_token": {"type": "string", "description": "Decrypted JWT token"},
+                                        "note": {"type": "string", "description": "Usage note"}
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "payload": {"type": "object", "description": "Decrypted payload"}
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "400": {"description": "Invalid request or decryption failed"}
+        }
+    }
+}
+
 # Add paths to spec
 spec.path(path="/token", operations=login_endpoint)
 spec.path(path="/refresh", operations=refresh_endpoint)
@@ -541,6 +775,9 @@ spec.path(path="/decode", operations=decode_endpoint)
 spec.path(path="/validate", operations=validate_endpoint)
 spec.path(path="/protected", operations=protected_endpoint)
 spec.path(path="/sensitive-action", operations=sensitive_action_endpoint)
+spec.path(path="/generate-jwe-key", operations=generate_jwe_key_endpoint)
+spec.path(path="/encrypt-jwe", operations=encrypt_jwe_endpoint)
+spec.path(path="/decrypt-jwe", operations=decrypt_jwe_endpoint)
 spec.path(path="/api-keys", operations={**get_api_keys_endpoint, **create_api_key_endpoint})
 spec.path(path="/api-keys/{api_key_id}", operations=get_api_key_endpoint)
 spec.path(path="/api-keys/{api_key_string}", operations={**update_api_key_endpoint, **delete_api_key_endpoint})

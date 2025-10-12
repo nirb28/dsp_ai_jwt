@@ -1,0 +1,37 @@
+id: api-key-jwe-001
+owner: security-team  
+# JWE (JSON Web Encryption) Configuration
+jwe_config:
+  enabled: true
+  # Symmetric encryption key (base64-encoded, 32 bytes for A256GCM)
+  # Generate with: python -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"
+  encryption_key: "pArpqi3lKdqdBOArPb5l0+hOM2LZSX51Dvta4IoiAYM="  # Store in environment variable ${JWE_ENCRYPTION_KEY}
+  # Key management algorithm: 'dir' for direct use of shared symmetric key
+  algorithm: "dir"
+  # Content encryption algorithm: A128GCM, A192GCM, A256GCM, A128CBC-HS256, A192CBC-HS384, A256CBC-HS512
+  encryption: "A256GCM"
+  # Compression: null or 'DEF' for deflate compression
+  compression: DEF
+
+claims:
+  static:
+    models:
+      - gpt-4
+      - claude-3-opus
+    rate_limit: 50
+    tier: enterprise
+    exp_hours: 1
+    # Security level for sensitive data
+    security_level: "high"
+  dynamic:
+    quota:
+      type: function
+      module: claims.quota
+      function: get_remaining_quota
+      args:
+        user_id: "{user_id}"
+
+metadata:
+  description: "JWE-encrypted API key for high-security applications"
+  created_at: "2024-01-10"
+  requires_jwe: true
