@@ -237,18 +237,23 @@ def login():
                 content_encryption = jwe_config.get('encryption', 'A256GCM')
                 compression = jwe_config.get('compression', None)
                 
-                # Encrypt both tokens
+                # Get kid (Key ID) from claims for APISIX consumer identification
+                kid = claims.get('key') if claims else None
+                
+                # Encrypt both tokens with kid
                 encrypted_access_token = encrypt_jwt_token(
                     access_token,
                     encryption_key,
                     content_encryption,
-                    compression
+                    compression,
+                    kid=kid
                 )
                 encrypted_refresh_token = encrypt_jwt_token(
                     refresh_token,
                     encryption_key,
                     content_encryption,
-                    compression
+                    compression,
+                    kid=kid
                 )
                 
                 return jsonify({
@@ -304,9 +309,14 @@ def get_jwe_config_from_api_key(api_key: str = None, api_key_config: dict = None
     try:
         # If api_key_config is provided inline, use it directly
         if api_key_config:
+            logger.info(f"Checking for JWE config in api_key_config. Keys present: {list(api_key_config.keys())}")
             jwe_config = api_key_config.get('jwe_config', {})
+            logger.info(f"JWE config found: {jwe_config}")
             if jwe_config.get('enabled', False):
+                logger.info(f"JWE is enabled, returning config")
                 return jwe_config
+            else:
+                logger.info(f"JWE not enabled or config empty")
             return {}
         
         # Otherwise load from file

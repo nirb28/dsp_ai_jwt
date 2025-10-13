@@ -130,12 +130,13 @@ class JWEHandler:
         key = jwk.JWK(kty='oct', k=base64.urlsafe_b64encode(key_bytes).decode('utf-8'))
         return key
     
-    def encrypt(self, payload: Dict[str, Any]) -> str:
+    def encrypt(self, payload: Dict[str, Any], kid: Optional[str] = None) -> str:
         """
         Encrypt a payload using JWE
         
         Args:
             payload: Dictionary containing the data to encrypt
+            kid: Key ID to include in the JWE header (optional)
             
         Returns:
             JWE compact serialization string
@@ -146,6 +147,10 @@ class JWEHandler:
                 'alg': self.key_algorithm,
                 'enc': self.content_encryption
             }
+            
+            # Add kid if provided
+            if kid:
+                protected_header['kid'] = kid
             
             # Add compression if enabled
             if self.compression:
@@ -265,7 +270,8 @@ def encrypt_jwt_token(
     jwt_token: str,
     encryption_key: str,
     content_encryption: str = 'A256GCM',
-    compression: Optional[str] = None
+    compression: Optional[str] = None,
+    kid: Optional[str] = None
 ) -> str:
     """
     Encrypt a JWT token into a JWE token
@@ -275,6 +281,7 @@ def encrypt_jwt_token(
         encryption_key: Base64-encoded or hex-encoded encryption key
         content_encryption: Content encryption algorithm (default: A256GCM)
         compression: Compression algorithm (default: None)
+        kid: Key ID to include in the JWE header (optional)
         
     Returns:
         JWE compact serialization string
@@ -287,7 +294,7 @@ def encrypt_jwt_token(
     
     # Wrap the JWT token in a payload
     payload = {'jwt': jwt_token}
-    return handler.encrypt(payload)
+    return handler.encrypt(payload, kid=kid)
 
 
 def decrypt_jwe_token(
@@ -319,7 +326,8 @@ def encrypt_payload_to_jwe(
     payload: Dict[str, Any],
     encryption_key: str,
     content_encryption: str = 'A256GCM',
-    compression: Optional[str] = None
+    compression: Optional[str] = None,
+    kid: Optional[str] = None
 ) -> str:
     """
     Encrypt a payload dictionary directly into a JWE token
@@ -329,6 +337,7 @@ def encrypt_payload_to_jwe(
         encryption_key: Base64-encoded or hex-encoded encryption key
         content_encryption: Content encryption algorithm (default: A256GCM)
         compression: Compression algorithm (default: None)
+        kid: Key ID to include in the JWE header (optional)
         
     Returns:
         JWE compact serialization string
@@ -339,7 +348,7 @@ def encrypt_payload_to_jwe(
         compression=compression
     )
     
-    return handler.encrypt(payload)
+    return handler.encrypt(payload, kid=kid)
 
 
 def decrypt_jwe_to_payload(
